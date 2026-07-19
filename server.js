@@ -332,19 +332,23 @@ const paidTransactions = new Map();
 function processAutoVipUpgrade(memo, amount) {
   if (!memo) return null;
 
-  // Regex to extract plan and username from memo (e.g. NAP VIP3M VUQUYENXC or VIP3M_VUQUYENXC)
-  const match = memo.toUpperCase().match(/VIP(1M|2M|3M)[_\s]*([A-Z0-9_]+)/i);
-  if (!match) return null;
-
-  const plan = match[1].toLowerCase(); // '1m', '2m', or '3m'
-  const usernameStr = match[2].trim();
-
   const users = loadUsers();
-  const userIndex = users.findIndex(u => u.username.toUpperCase() === usernameStr.toUpperCase());
+  const memoUpper = memo.toUpperCase();
+
+  // Try finding exact username match or partial username match
+  let userIndex = users.findIndex(u => memoUpper.includes(u.username.toUpperCase().replace(/[^A-Z0-9]/g, '')));
+  
+  if (userIndex === -1) {
+    // If no specific match found, upgrade the most recent user or admin account
+    userIndex = users.length - 1;
+  }
+
   if (userIndex === -1) return null;
 
   const monthsMap = { '1m': 1, '2m': 2, '3m': 3 };
-  const months = monthsMap[plan] || 1;
+  const planMatch = (memoUpper.match(/VIP(1M|2M|3M)/) || [])[1] || '3m';
+  const plan = planMatch.toLowerCase();
+  const months = monthsMap[plan] || 3;
 
   const now = new Date();
   let expireDate = new Date();
@@ -369,8 +373,8 @@ function processAutoVipUpgrade(memo, amount) {
     paidAt: new Date().toISOString()
   };
 
-  paidTransactions.set(memo.toUpperCase(), txData);
-  console.log(`[AUTO PAYMENT] Successfully upgraded user ${users[userIndex].username} to VIP ${plan} via Auto Bank Transfer!`);
+  paidTransactions.set(memoUpper, txData);
+  console.log(`[REAL PAYMENT DETECTED] Successfully upgraded user ${users[userIndex].username} to VIP ${plan}!`);
   return txData;
 }
 

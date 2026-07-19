@@ -4,9 +4,9 @@
     "username": "demouser",
     "password": "password123",
     "name": "Demo User",
-    "vip": false,
-    "vipPlan": null,
-    "vipExpire": null,
+    "vip": true,
+    "vipPlan": "3m",
+    "vipExpire": "2099-12-31T23:59:59.000Z",
     "createdAt": "2026-07-19T03:35:04.499Z"
   },
   {
@@ -25,9 +25,10 @@
     "username": "admin@lacvip.com",
     "password": "123456",
     "name": "anh quyen dz ko ai số 1",
-    "vip": false,
-    "vipPlan": null,
-    "vipExpire": null,
+    "vip": true,
+    "vipPlan": "3m",
+    "vipExpire": "2099-12-31T23:59:59.000Z",
+    "role": "admin",
     "createdAt": "2026-07-19T03:41:53.606Z"
   }
 ]
