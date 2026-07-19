@@ -53,11 +53,11 @@ app.get('/favicon.ico', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'logo.png'));
 });
 
-// Bank Config for VietQR Payments
+// Bank Config for VietQR / PayOS Payments
 const BANK_CONFIG = {
-  bankId: 'TCB', // Techcombank
-  bankName: 'Techcombank',
-  accountNo: '509868686868',
+  bankId: 'KLB', // KienlongBank
+  bankName: 'Ngân hàng TMCP Kiên Long',
+  accountNo: '6909092005',
   accountName: 'VU VAN QUYEN'
 };
 
@@ -381,7 +381,7 @@ app.get('/api/payment/check-status', (req, res) => {
 
   res.json({
     status: 'PENDING',
-    message: 'Đang chờ hệ thống ngân hàng Techcombank ghi nhận biến động dư...'
+    message: 'Đang chờ hệ thống ngân hàng Kiên Long (KienlongBank) ghi nhận biến động dư...'
   });
 });
 

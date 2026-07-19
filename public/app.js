@@ -420,13 +420,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (copyMemoBtn) copyMemoBtn.dataset.copy = currentPaymentMemo;
 
     if (autoPollingText) {
-      autoPollingText.textContent = '🔄 Tự động kiểm tra chuyển khoản từ Techcombank...';
+      autoPollingText.textContent = '🔄 Tự động kiểm tra chuyển khoản từ KienlongBank...';
     }
 
-    // Generate real Techcombank VietQR URL
-    // Bank: TCB, STK: 509868686868, Name: VU VAN QUYEN
-    const bankId = 'TCB';
-    const accountNo = '509868686868';
+    // Generate real KienlongBank (PayOS) VietQR URL
+    // Bank: KLB (KienlongBank), STK: 6909092005, Name: VU VAN QUYEN
+    const bankId = 'KLB';
+    const accountNo = '6909092005';
     const accountName = 'VU VAN QUYEN';
     const qrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${info.amount}&addInfo=${encodeURIComponent(currentPaymentMemo)}&accountName=${encodeURIComponent(accountName)}`;
 
