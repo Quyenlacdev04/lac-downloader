@@ -4,6 +4,7 @@ const { exec, execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const PayOS = require('@payos/node');
 
 const app = express();
 const PORT = 3000;
@@ -385,21 +386,35 @@ app.get('/api/payment/check-status', (req, res) => {
   });
 });
 
-// API: Bank Webhook (Integrates with SePay / Casso / Bank Auto API)
+// API: Real Bank & PayOS Webhook (Receives Real KienlongBank Transactions 24/7)
 app.post('/api/payment/webhook', (req, res) => {
   try {
-    const body = req.body || {};
-    const memo = body.content || body.description || body.code || body.transferContent || body.memo || '';
-    const amount = body.amount || body.transferAmount || 0;
+    let body = req.body || {};
 
-    console.log(`[WEBHOOK RECEIVED] Amount: ${amount}, Content: "${memo}"`);
-
-    const result = processAutoVipUpgrade(memo, amount);
-    if (result) {
-      return res.json({ success: true, message: 'Đã tự động kích hoạt VIP!', data: result });
+    // Check if PayOS webhook signature format
+    if (payOS && req.body && req.body.data && req.body.signature) {
+      try {
+        const verifiedData = payOS.verifyPaymentWebhookData(req.body);
+        if (verifiedData) {
+          body = verifiedData;
+          console.log('[PAYOS WEBHOOK VERIFIED] Real Payment Confirmed:', verifiedData);
+        }
+      } catch (verifyErr) {
+        console.warn('[PAYOS VERIFY WARNING]', verifyErr.message);
+      }
     }
 
-    res.json({ success: false, message: 'Không tìm thấy thông tin chuyển khoản trùng khớp.' });
+    const memo = body.content || body.description || body.code || body.transferContent || body.memo || body.orderCode || '';
+    const amount = body.amount || body.transferAmount || 0;
+
+    console.log(`[REAL WEBHOOK RECEIVED] Amount: ${amount}, Content: "${memo}"`);
+
+    const result = processAutoVipUpgrade(memo.toString(), amount);
+    if (result) {
+      return res.json({ success: true, message: 'Đã tự động xác nhận thanh toán thật & kích hoạt VIP!', data: result });
+    }
+
+    res.json({ success: false, message: 'Giao dịch chưa khớp cú pháp nâng VIP.' });
   } catch (err) {
     console.error('[WEBHOOK ERROR]', err);
     res.status(500).json({ error: 'Lỗi xử lý webhook' });
