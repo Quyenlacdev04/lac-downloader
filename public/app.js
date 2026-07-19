@@ -395,11 +395,6 @@ document.addEventListener('DOMContentLoaded', () => {
   vipModalClose.addEventListener('click', closeVipModal);
 
   confirmVipBtn.addEventListener('click', () => {
-    if (!currentUser) {
-      closeVipModal();
-      openAuthModal('login');
-      return;
-    }
     closeVipModal();
     openPaymentModal();
   });
