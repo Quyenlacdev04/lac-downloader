@@ -552,21 +552,15 @@ document.addEventListener('DOMContentLoaded', () => {
   if (cancelPaymentBtn) cancelPaymentBtn.addEventListener('click', closePaymentModal);
 
   simulatePayBtn.addEventListener('click', async () => {
-    if (!authToken) {
-      closePaymentModal();
-      openAuthModal('login');
-      return;
-    }
-
     try {
       simulatePayBtn.disabled = true;
       const res = await fetch('/api/payment/simulate-auto-paid', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
         },
-        body: JSON.stringify({ memo: currentPaymentMemo })
+        body: JSON.stringify({ memo: currentPaymentMemo, orderCode: currentOrderCode })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Nâng cấp thất bại.');
