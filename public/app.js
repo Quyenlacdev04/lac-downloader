@@ -308,8 +308,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Quick Demo Login
-  quickDemoBtn.addEventListener('click', async () => {
+  // Quick Demo Login (if element exists)
+  if (quickDemoBtn) {
+    quickDemoBtn.addEventListener('click', async () => {
     const demoUsername = 'demouser';
     const demoPassword = 'password123';
 
@@ -346,6 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('Demo login error:', e);
     }
   });
+  }
 
   // ---- VIP Modal & Subscription Logic ----
   function openVipModal() {
