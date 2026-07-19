@@ -461,7 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
       autoPollingText.textContent = '🔄 Tự động kiểm tra chuyển khoản từ KienlongBank...';
     }
 
-    // Default VietQR fallback image
+    // Default VietQR image
     const bankId = 'KLB';
     const accountNo = '6909092005';
     const accountName = 'VU VAN QUYEN';
@@ -481,7 +481,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (orderData.success) {
         currentOrderCode = orderData.orderCode;
         if (orderData.qrCode) {
-          qrUrl = orderData.qrCode;
+          qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(orderData.qrCode)}`;
         }
       }
     } catch (e) {
