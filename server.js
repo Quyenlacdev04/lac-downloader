@@ -421,8 +421,8 @@ app.post('/api/payment/create-order', async (req, res) => {
         returnUrl: `http://localhost:3000/`
       };
 
-      const paymentLinkRes = await payOS.createPaymentLink(paymentData);
-      console.log(`[PAYOS REAL LINK CREATED] OrderCode: ${orderCode}`);
+      const paymentLinkRes = await payOS.paymentRequests.create(paymentData);
+      console.log(`[REAL PAYOS LINK CREATED] OrderCode: ${orderCode}, URL: ${paymentLinkRes.checkoutUrl}`);
 
       return res.json({
         success: true,
@@ -431,7 +431,9 @@ app.post('/api/payment/create-order', async (req, res) => {
         amount: info.amount,
         description,
         qrCode: paymentLinkRes.qrCode,
-        checkoutUrl: paymentLinkRes.checkoutUrl
+        checkoutUrl: paymentLinkRes.checkoutUrl,
+        accountNumber: paymentLinkRes.accountNumber,
+        accountName: paymentLinkRes.accountName
       });
     } catch (payOsErr) {
       console.warn('[PAYOS REAL LINK WARN]', payOsErr.message);
@@ -455,7 +457,7 @@ app.get('/api/payment/check-status', async (req, res) => {
   // 1. Direct PayOS API Check for real bank payment
   if (payOS && orderCode) {
     try {
-      const payOSInfo = await payOS.getPaymentLinkInformation(Number(orderCode));
+      const payOSInfo = await payOS.paymentRequests.get(Number(orderCode));
       if (payOSInfo && (payOSInfo.status === 'PAID' || payOSInfo.status === 'SUCCESS')) {
         console.log(`[PAYOS REAL PAYMENT CONFIRMED DIRECTLY] OrderCode: ${orderCode} is PAID!`);
         const targetUser = user || (activePayOSOrders.has(Number(orderCode)) ? activePayOSOrders.get(Number(orderCode)) : null);
@@ -509,7 +511,7 @@ app.post('/api/payment/webhook', (req, res) => {
     // Check if PayOS webhook signature format
     if (payOS && req.body && req.body.data && req.body.signature) {
       try {
-        const verifiedData = payOS.verifyPaymentWebhookData(req.body);
+        const verifiedData = payOS.webhooks.verify(req.body);
         if (verifiedData) {
           body = verifiedData;
           console.log('[PAYOS WEBHOOK VERIFIED] Real Payment Confirmed:', verifiedData);
