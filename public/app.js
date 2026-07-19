@@ -3,6 +3,17 @@
 // ==========================================
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Splash Screen Intro Timer (Logo 3 seconds)
+  const splashScreen = document.getElementById('splashScreen');
+  if (splashScreen) {
+    setTimeout(() => {
+      splashScreen.classList.add('fade-out');
+      setTimeout(() => {
+        splashScreen.style.display = 'none';
+      }, 800);
+    }, 3000);
+  }
+
   // Main Elements
   const urlInput = document.getElementById('urlInput');
   const clearBtn = document.getElementById('clearBtn');
