@@ -306,6 +306,127 @@ app.post('/api/auth/avatar', (req, res) => {
   });
 });
 
+// Paid transactions store (memo -> transaction)
+const paidTransactions = new Map();
+
+function processAutoVipUpgrade(memo, amount) {
+  if (!memo) return null;
+
+  // Regex to extract plan and username from memo (e.g. NAP VIP3M VUQUYENXC or VIP3M_VUQUYENXC)
+  const match = memo.toUpperCase().match(/VIP(1M|2M|3M)[_\s]*([A-Z0-9_]+)/i);
+  if (!match) return null;
+
+  const plan = match[1].toLowerCase(); // '1m', '2m', or '3m'
+  const usernameStr = match[2].trim();
+
+  const users = loadUsers();
+  const userIndex = users.findIndex(u => u.username.toUpperCase() === usernameStr.toUpperCase());
+  if (userIndex === -1) return null;
+
+  const monthsMap = { '1m': 1, '2m': 2, '3m': 3 };
+  const months = monthsMap[plan] || 1;
+
+  const now = new Date();
+  let expireDate = new Date();
+  if (users[userIndex].vip && users[userIndex].vipExpire && new Date(users[userIndex].vipExpire) > now) {
+    expireDate = new Date(users[userIndex].vipExpire);
+  }
+  expireDate.setMonth(expireDate.getMonth() + months);
+
+  users[userIndex].vip = true;
+  users[userIndex].vipPlan = plan;
+  users[userIndex].vipExpire = expireDate.toISOString();
+
+  saveUsers(users);
+
+  const txData = {
+    memo: memo,
+    amount: amount,
+    userId: users[userIndex].id,
+    username: users[userIndex].username,
+    plan: plan,
+    status: 'PAID',
+    paidAt: new Date().toISOString()
+  };
+
+  paidTransactions.set(memo.toUpperCase(), txData);
+  console.log(`[AUTO PAYMENT] Successfully upgraded user ${users[userIndex].username} to VIP ${plan} via Auto Bank Transfer!`);
+  return txData;
+}
+
+// API: Check Automatic Payment Status (Auto Polling from Frontend)
+app.get('/api/payment/check-status', (req, res) => {
+  const { memo } = req.query;
+  const user = getUserFromReq(req);
+
+  if (memo && paidTransactions.has(memo.toString().toUpperCase())) {
+    const tx = paidTransactions.get(memo.toString().toUpperCase());
+    return res.json({
+      status: 'SUCCESS',
+      message: 'Giao dịch chuyển khoản đã được ghi nhận tự động!',
+      transaction: tx,
+      user: user ? sanitizeUser(user) : null
+    });
+  }
+
+  // Also check if user is already VIP
+  if (user && user.vip) {
+    return res.json({
+      status: 'SUCCESS',
+      message: 'Tài khoản của bạn đã có VIP!',
+      isVip: true,
+      user: sanitizeUser(user)
+    });
+  }
+
+  res.json({
+    status: 'PENDING',
+    message: 'Đang chờ hệ thống ngân hàng Techcombank ghi nhận biến động dư...'
+  });
+});
+
+// API: Bank Webhook (Integrates with SePay / Casso / Bank Auto API)
+app.post('/api/payment/webhook', (req, res) => {
+  try {
+    const body = req.body || {};
+    const memo = body.content || body.description || body.code || body.transferContent || body.memo || '';
+    const amount = body.amount || body.transferAmount || 0;
+
+    console.log(`[WEBHOOK RECEIVED] Amount: ${amount}, Content: "${memo}"`);
+
+    const result = processAutoVipUpgrade(memo, amount);
+    if (result) {
+      return res.json({ success: true, message: 'Đã tự động kích hoạt VIP!', data: result });
+    }
+
+    res.json({ success: false, message: 'Không tìm thấy thông tin chuyển khoản trùng khớp.' });
+  } catch (err) {
+    console.error('[WEBHOOK ERROR]', err);
+    res.status(500).json({ error: 'Lỗi xử lý webhook' });
+  }
+});
+
+// API: Trigger Simulated Auto Payment (For Testing Instant Auto Detection)
+app.post('/api/payment/simulate-auto-paid', (req, res) => {
+  const { memo } = req.body;
+  const user = getUserFromReq(req);
+
+  const targetMemo = memo || (user ? `NAP VIP3M ${user.username}` : '');
+  const result = processAutoVipUpgrade(targetMemo, 59000);
+
+  if (result || (user && user.vip)) {
+    const users = loadUsers();
+    const updatedUser = users.find(u => u.id === (user ? user.id : ''));
+    res.json({
+      success: true,
+      message: 'Đã phát hiện giao dịch thành công!',
+      user: updatedUser ? sanitizeUser(updatedUser) : null
+    });
+  } else {
+    res.status(400).json({ error: 'Không thể xử lý giao dịch tự động.' });
+  }
+});
+
 // API: Subscribe VIP Plan (1m: 29k, 2m: 39k, 3m: 59k)
 app.post('/api/auth/subscribe', (req, res) => {
   const user = getUserFromReq(req);

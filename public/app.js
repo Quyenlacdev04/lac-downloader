@@ -383,12 +383,16 @@ document.addEventListener('DOMContentLoaded', () => {
     openPaymentModal();
   });
 
-  // VietQR Generation & Copy Handlers
+  // VietQR Generation & Auto Polling Payment System
   const vietqrImg = document.getElementById('vietqrImg');
   const amountVal = document.getElementById('amountVal');
   const memoVal = document.getElementById('memoVal');
   const copyAmountBtn = document.getElementById('copyAmountBtn');
   const copyMemoBtn = document.getElementById('copyMemoBtn');
+  const autoPollingText = document.getElementById('autoPollingText');
+
+  let paymentPollingInterval = null;
+  let currentPaymentMemo = '';
 
   function openPaymentModal() {
     const planMap = {
@@ -399,27 +403,66 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const info = planMap[selectedVipPlan] || planMap['3m'];
     const uname = (currentUser ? currentUser.username : 'GUEST').toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const memo = `NAP VIP${selectedVipPlan.toUpperCase()} ${uname}`;
+    currentPaymentMemo = `NAP VIP${selectedVipPlan.toUpperCase()} ${uname}`;
 
     paymentPlanInfo.textContent = `${info.title} - ${info.priceStr}`;
     amountVal.textContent = info.priceStr;
-    memoVal.textContent = memo;
+    memoVal.textContent = currentPaymentMemo;
 
     if (copyAmountBtn) copyAmountBtn.dataset.copy = info.amount.toString();
-    if (copyMemoBtn) copyMemoBtn.dataset.copy = memo;
+    if (copyMemoBtn) copyMemoBtn.dataset.copy = currentPaymentMemo;
+
+    if (autoPollingText) {
+      autoPollingText.textContent = '🔄 Đang chờ hệ thống ngân hàng Techcombank ghi nhận biến động dư (Tự động nâng VIP)...';
+    }
 
     // Generate real Techcombank VietQR URL
     // Bank: TCB, STK: 509868686868, Name: VU VAN QUYEN
     const bankId = 'TCB';
     const accountNo = '509868686868';
     const accountName = 'VU VAN QUYEN';
-    const qrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${info.amount}&addInfo=${encodeURIComponent(memo)}&accountName=${encodeURIComponent(accountName)}`;
+    const qrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${info.amount}&addInfo=${encodeURIComponent(currentPaymentMemo)}&accountName=${encodeURIComponent(accountName)}`;
 
     if (vietqrImg) {
       vietqrImg.src = qrUrl;
     }
 
     paymentModal.classList.remove('hidden');
+
+    // Start 24/7 Automatic Bank Transfer Status Polling (Every 2.5 seconds)
+    if (paymentPollingInterval) clearInterval(paymentPollingInterval);
+
+    paymentPollingInterval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/payment/check-status?memo=${encodeURIComponent(currentPaymentMemo)}`, {
+          headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+        });
+        const data = await res.json();
+
+        if (data.status === 'SUCCESS') {
+          clearInterval(paymentPollingInterval);
+          paymentPollingInterval = null;
+
+          if (data.user) {
+            currentUser = data.user;
+            updateUserUI();
+          }
+
+          if (autoPollingText) {
+            autoPollingText.textContent = '🎉 Đã nhận tiền thành công từ Techcombank! Đã kích hoạt VIP!';
+          }
+
+          setTimeout(() => {
+            closePaymentModal();
+            if (currentUrl) {
+              executeTrackDownload();
+            }
+          }, 1200);
+        }
+      } catch (err) {
+        console.warn('Auto polling check warning:', err);
+      }
+    }, 2500);
   }
 
   // Copy buttons handler
@@ -443,6 +486,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function closePaymentModal() {
+    if (paymentPollingInterval) {
+      clearInterval(paymentPollingInterval);
+      paymentPollingInterval = null;
+    }
     paymentModal.classList.add('hidden');
   }
 
@@ -457,25 +504,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       simulatePayBtn.disabled = true;
-      const res = await fetch('/api/auth/subscribe', {
+      const res = await fetch('/api/payment/simulate-auto-paid', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken}`
         },
-        body: JSON.stringify({ plan: selectedVipPlan })
+        body: JSON.stringify({ memo: currentPaymentMemo })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Nâng cấp thất bại.');
 
-      currentUser = data.user;
-      updateUserUI();
-      closePaymentModal();
-
-      // Trigger actual track download immediately!
-      if (currentUrl) {
-        executeTrackDownload();
+      if (data.user) {
+        currentUser = data.user;
+        updateUserUI();
       }
+
+      if (autoPollingText) {
+        autoPollingText.textContent = '🎉 Đã phát hiện chuyển khoản! Đã tự động nâng VIP!';
+      }
+
+      setTimeout(() => {
+        closePaymentModal();
+        if (currentUrl) {
+          executeTrackDownload();
+        }
+      }, 1000);
+
     } catch (err) {
       alert(err.message);
     } finally {

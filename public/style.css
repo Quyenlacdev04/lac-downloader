@@ -1889,9 +1889,45 @@ body {
 .splash-bar:nth-child(3) { animation-delay: 0.3s; }
 .splash-bar:nth-child(4) { animation-delay: 0.45s; }
 
-@keyframes splashDance {
-  0%, 100% { transform: scaleY(0.3); opacity: 0.4; }
-  50% { transform: scaleY(1); opacity: 1; }
+/* Auto Polling Status Indicator */
+.auto-polling-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0, 230, 118, 0.08);
+  border: 1px solid rgba(0, 230, 118, 0.25);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  font-size: 0.82rem;
+  color: #00e676;
+  text-align: left;
+}
+
+.radar-pulse {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  background: #00e676;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.radar-pulse::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #00e676;
+  border-radius: 50%;
+  animation: radarExpand 1.5s ease-out infinite;
+}
+
+@keyframes radarExpand {
+  0% { transform: scale(0.5); opacity: 1; }
+  100% { transform: scale(1.6); opacity: 0; }
 }
 
 
