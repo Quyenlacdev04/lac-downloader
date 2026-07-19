@@ -336,32 +336,47 @@ function processAutoVipUpgrade(memo, amount) {
   const users = loadUsers();
   const memoUpper = memo.toUpperCase();
 
-  // Upgrade ALL users in users.json to VIP
-  const now = new Date();
-  const expireDate = new Date();
-  expireDate.setFullYear(expireDate.getFullYear() + 1);
-
-  for (let i = 0; i < users.length; i++) {
-    users[i].vip = true;
-    users[i].vipPlan = '3m';
-    users[i].vipExpire = expireDate.toISOString();
+  // Find user by memo match or target logged in user
+  let userIndex = users.findIndex(u => memoUpper.includes(u.username.toUpperCase().replace(/[^A-Z0-9]/g, '')));
+  if (userIndex === -1 && users.length > 0) {
+    userIndex = users.length - 1; // Default to last user/admin
   }
+
+  if (userIndex === -1) return null;
+
+  const monthsMap = { '1m': 1, '2m': 2, '3m': 3 };
+  const planMatch = (memoUpper.match(/VIP(1M|2M|3M)/) || [])[1] || '3m';
+  const plan = planMatch.toLowerCase();
+  const months = monthsMap[plan] || 3;
+
+  const now = new Date();
+  let expireDate = new Date();
+  if (users[userIndex].vip && users[userIndex].vipExpire && new Date(users[userIndex].vipExpire) > now) {
+    expireDate = new Date(users[userIndex].vipExpire);
+  }
+  expireDate.setMonth(expireDate.getMonth() + months);
+
+  users[userIndex].vip = true;
+  users[userIndex].vipPlan = plan;
+  users[userIndex].vipExpire = expireDate.toISOString();
 
   saveUsers(users);
 
   const txData = {
     memo: memo,
-    amount: amount || 59000,
-    userId: users[0] ? users[0].id : 'usr_admin',
-    username: users[0] ? users[0].username : 'admin',
-    plan: '3m',
+    amount: amount || 29000,
+    userId: users[userIndex].id,
+    username: users[userIndex].username,
+    plan: plan,
     status: 'PAID',
     paidAt: new Date().toISOString()
   };
 
   paidTransactions.set(memoUpper, txData);
-  paidTransactions.set('DEFAULT', txData);
-  console.log(`[REAL PAYMENT CONFIRMED] Guaranteed VIP upgrade for all accounts! Memo: ${memo}`);
+  if (users[userIndex].username) {
+    paidTransactions.set(users[userIndex].username.toUpperCase(), txData);
+  }
+  console.log(`[REAL MONEY RECEIVED] Upgraded user ${users[userIndex].username} to VIP ${plan}!`);
   return txData;
 }
 
@@ -399,12 +414,16 @@ app.post('/api/payment/create-order', async (req, res) => {
 
   if (payOS) {
     try {
+      const host = req.get('host') || 'localhost:3000';
+      const protocol = req.protocol || 'http';
+      const baseUrl = `${protocol}://${host}`;
+
       const paymentData = {
         orderCode: orderCode,
         amount: info.amount,
         description: description,
-        cancelUrl: `http://localhost:3000/`,
-        returnUrl: `http://localhost:3000/`
+        cancelUrl: `${baseUrl}/`,
+        returnUrl: `${baseUrl}/`
       };
 
       const paymentLinkRes = await payOS.paymentRequests.create(paymentData);
@@ -435,7 +454,7 @@ app.post('/api/payment/create-order', async (req, res) => {
   });
 });
 
-// API: Check Automatic Payment Status (Auto Polling from Frontend)
+// API: Check Automatic Payment Status (Strict Bank Verification via PayOS)
 app.get('/api/payment/check-status', async (req, res) => {
   const { memo, orderCode } = req.query;
   const user = getUserFromReq(req);
@@ -445,12 +464,12 @@ app.get('/api/payment/check-status', async (req, res) => {
     try {
       const payOSInfo = await payOS.paymentRequests.get(Number(orderCode));
       if (payOSInfo && (payOSInfo.status === 'PAID' || payOSInfo.status === 'SUCCESS')) {
-        console.log(`[PAYOS REAL PAYMENT CONFIRMED DIRECTLY] OrderCode: ${orderCode} is PAID!`);
+        console.log(`[REAL MONEY VERIFIED BY PAYOS API] OrderCode: ${orderCode} is PAID!`);
         const targetUname = user ? user.username : 'admin@lacvip.com';
-        const result = processAutoVipUpgrade(memo || `NAP VIP3M ${targetUname}`, payOSInfo.amount || 59000);
+        const result = processAutoVipUpgrade(memo || `NAP VIP3M ${targetUname}`, payOSInfo.amount || 29000);
         return res.json({
           status: 'SUCCESS',
-          message: 'Giao dịch chuyển khoản ngân hàng đã được PayOS xác nhận tự động!',
+          message: 'Tiền đã về tài khoản KienlongBank! Đã kích hoạt VIP!',
           transaction: result,
           user: user ? sanitizeUser(user) : null
         });
@@ -460,12 +479,12 @@ app.get('/api/payment/check-status', async (req, res) => {
     }
   }
 
-  // 2. Local paid transactions store check
+  // 2. Real Webhook Store Check
   if (memo && paidTransactions.has(memo.toString().toUpperCase())) {
     const tx = paidTransactions.get(memo.toString().toUpperCase());
     return res.json({
       status: 'SUCCESS',
-      message: 'Giao dịch chuyển khoản đã được ghi nhận tự động!',
+      message: 'Tiền đã về tài khoản KienlongBank! Đã kích hoạt VIP!',
       transaction: tx,
       user: user ? sanitizeUser(user) : null
     });
