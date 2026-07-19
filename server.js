@@ -57,7 +57,7 @@ app.get('/favicon.ico', (req, res) => {
 // PayOS Credentials (Configured from User's PayOS Channel for KienlongBank 6909092005)
 const PAYOS_CLIENT_ID = process.env.PAYOS_CLIENT_ID || '9dad6bbc-65a9-4559-bb38-cee47ebe684b';
 const PAYOS_API_KEY = process.env.PAYOS_API_KEY || 'db65598a-5d6c-4abb-b239-a15bdab8363f';
-const PAYOS_CHECKSUM_KEY = process.env.PAYOS_CHECKSUM_KEY || '22a0e7479606d64bfd181d2854267bd96518102534926';
+const PAYOS_CHECKSUM_KEY = process.env.PAYOS_CHECKSUM_KEY || '22a0e7479606d64bfd181d2854267bd96518102534926bb38f77ec128fa422ed';
 
 let payOS = null;
 if (PAYOS_CLIENT_ID && PAYOS_API_KEY && PAYOS_CHECKSUM_KEY) {
