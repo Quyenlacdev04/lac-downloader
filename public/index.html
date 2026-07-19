@@ -503,6 +503,41 @@
           </div>
         </div>
       </div>
+
+      <!-- PayOS Success View (Thanh toán hoàn tất + Nút XONG) -->
+      <div id="paymentSuccessBox" class="payos-success-box hidden">
+        <div class="payos-success-circle">
+          <svg class="checkmark-svg" viewBox="0 0 52 52">
+            <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
+            <path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+          </svg>
+        </div>
+        <h2 class="payos-success-title">Thanh Toán Hoàn Tất!</h2>
+        <p class="payos-success-desc">Hệ thống đã nhận được chuyển khoản từ KienlongBank. Gói VIP của bạn đã được kích hoạt thành công!</p>
+        
+        <div class="payos-success-details">
+          <div class="success-row">
+            <span>Mã giao dịch:</span>
+            <strong id="successTxId">KLB-889210</strong>
+          </div>
+          <div class="success-row">
+            <span>Ngân hàng thụ hưởng:</span>
+            <strong>KienlongBank (6909 0920 05)</strong>
+          </div>
+          <div class="success-row">
+            <span>Gói VIP:</span>
+            <strong id="successPlanName">VIP 3 Tháng</strong>
+          </div>
+          <div class="success-row">
+            <span>Số tiền:</span>
+            <strong id="successAmount" class="success-amount-val">59,000 vnđ</strong>
+          </div>
+        </div>
+
+        <button id="finishPaymentBtn" class="btn-payos-finish">
+          <span>XONG</span>
+        </button>
+      </div>
     </div>
   </div>
 

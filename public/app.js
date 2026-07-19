@@ -396,14 +396,50 @@ document.addEventListener('DOMContentLoaded', () => {
   const autoPollingText = document.getElementById('autoPollingText');
   const cancelPaymentBtn = document.getElementById('cancelPaymentBtn');
 
-  let paymentPollingInterval = null;
-  let currentPaymentMemo = '';
+  // Elements for Payment Success View
+  const payosBody = document.querySelector('.payos-body');
+  const paymentSuccessBox = document.getElementById('paymentSuccessBox');
+  const finishPaymentBtn = document.getElementById('finishPaymentBtn');
+  const successTxId = document.getElementById('successTxId');
+  const successPlanName = document.getElementById('successPlanName');
+  const successAmount = document.getElementById('successAmount');
+
+  function showPaymentSuccessView(info) {
+    if (paymentPollingInterval) {
+      clearInterval(paymentPollingInterval);
+      paymentPollingInterval = null;
+    }
+
+    if (payosBody) payosBody.classList.add('hidden');
+    if (paymentSuccessBox) paymentSuccessBox.classList.remove('hidden');
+
+    const randId = 'KLB-' + Math.floor(100000 + Math.random() * 900000);
+    if (successTxId) successTxId.textContent = randId;
+    if (successPlanName) successPlanName.textContent = info ? info.title : 'Gói VIP';
+    if (successAmount) successAmount.textContent = info ? info.priceStr : '59,000 vnđ';
+  }
+
+  function resetPaymentModalViews() {
+    if (payosBody) payosBody.classList.remove('hidden');
+    if (paymentSuccessBox) paymentSuccessBox.classList.add('hidden');
+  }
+
+  if (finishPaymentBtn) {
+    finishPaymentBtn.addEventListener('click', () => {
+      closePaymentModal();
+      if (currentUrl) {
+        executeTrackDownload();
+      }
+    });
+  }
 
   function openPaymentModal() {
+    resetPaymentModalViews();
+
     const planMap = {
-      '1m': { amount: 29000, priceStr: '29,000 vnđ', title: 'Gói 1 Tháng (Tháng đầu)' },
-      '2m': { amount: 39000, priceStr: '39,000 vnđ', title: 'Gói 2 Tháng' },
-      '3m': { amount: 59000, priceStr: '59,000 vnđ', title: 'Gói 3 Tháng (Cao nhất)' }
+      '1m': { amount: 29000, priceStr: '29,000 vnđ', title: 'VIP 1 Tháng' },
+      '2m': { amount: 39000, priceStr: '39,000 vnđ', title: 'VIP 2 Tháng' },
+      '3m': { amount: 59000, priceStr: '59,000 vnđ', title: 'VIP 3 Tháng' }
     };
 
     const info = planMap[selectedVipPlan] || planMap['3m'];
@@ -447,24 +483,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await res.json();
 
         if (data.status === 'SUCCESS') {
-          clearInterval(paymentPollingInterval);
-          paymentPollingInterval = null;
-
           if (data.user) {
             currentUser = data.user;
             updateUserUI();
           }
 
-          if (autoPollingText) {
-            autoPollingText.textContent = '🎉 Đã nhận tiền thành công từ Techcombank! Đã kích hoạt VIP!';
-          }
-
-          setTimeout(() => {
-            closePaymentModal();
-            if (currentUrl) {
-              executeTrackDownload();
-            }
-          }, 1200);
+          showPaymentSuccessView(info);
         }
       } catch (err) {
         console.warn('Auto polling check warning:', err);
@@ -498,6 +522,7 @@ document.addEventListener('DOMContentLoaded', () => {
       paymentPollingInterval = null;
     }
     paymentModal.classList.add('hidden');
+    resetPaymentModalViews();
   }
 
   paymentModalClose.addEventListener('click', closePaymentModal);
@@ -528,16 +553,13 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUserUI();
       }
 
-      if (autoPollingText) {
-        autoPollingText.textContent = '🎉 Đã phát hiện chuyển khoản! Đã tự động nâng VIP!';
-      }
-
-      setTimeout(() => {
-        closePaymentModal();
-        if (currentUrl) {
-          executeTrackDownload();
-        }
-      }, 1000);
+      const planMap = {
+        '1m': { amount: 29000, priceStr: '29,000 vnđ', title: 'VIP 1 Tháng' },
+        '2m': { amount: 39000, priceStr: '39,000 vnđ', title: 'VIP 2 Tháng' },
+        '3m': { amount: 59000, priceStr: '59,000 vnđ', title: 'VIP 3 Tháng' }
+      };
+      const info = planMap[selectedVipPlan] || planMap['3m'];
+      showPaymentSuccessView(info);
 
     } catch (err) {
       alert(err.message);
