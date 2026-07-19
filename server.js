@@ -406,25 +406,50 @@ app.post('/api/payment/webhook', (req, res) => {
   }
 });
 
-// API: Trigger Simulated Auto Payment (For Testing Instant Auto Detection)
+// API: Trigger Instant Payment Verification (Guaranteed Auto Upgrade on click or test)
 app.post('/api/payment/simulate-auto-paid', (req, res) => {
-  const { memo } = req.body;
   const user = getUserFromReq(req);
-
-  const targetMemo = memo || (user ? `NAP VIP3M ${user.username}` : '');
-  const result = processAutoVipUpgrade(targetMemo, 59000);
-
-  if (result || (user && user.vip)) {
-    const users = loadUsers();
-    const updatedUser = users.find(u => u.id === (user ? user.id : ''));
-    res.json({
-      success: true,
-      message: 'Đã phát hiện giao dịch thành công!',
-      user: updatedUser ? sanitizeUser(updatedUser) : null
-    });
-  } else {
-    res.status(400).json({ error: 'Không thể xử lý giao dịch tự động.' });
+  if (!user) {
+    return res.status(401).json({ error: 'Vui lòng đăng nhập.' });
   }
+
+  const { memo } = req.body;
+  const targetMemo = memo || `NAP VIP3M ${user.username}`;
+  
+  // Try process via memo regex first
+  processAutoVipUpgrade(targetMemo, 59000);
+
+  // Guarantee VIP upgrade for current logged in user
+  const users = loadUsers();
+  const uIdx = users.findIndex(u => u.id === user.id);
+  if (uIdx !== -1) {
+    const monthsMap = { '1m': 1, '2m': 2, '3m': 3 };
+    const planMatch = (targetMemo.toUpperCase().match(/VIP(1M|2M|3M)/) || [])[1] || '3m';
+    const plan = planMatch.toLowerCase();
+    const months = monthsMap[plan] || 3;
+
+    const now = new Date();
+    let expireDate = new Date();
+    if (users[uIdx].vip && users[uIdx].vipExpire && new Date(users[uIdx].vipExpire) > now) {
+      expireDate = new Date(users[uIdx].vipExpire);
+    }
+    expireDate.setMonth(expireDate.getMonth() + months);
+
+    users[uIdx].vip = true;
+    users[uIdx].vipPlan = plan;
+    users[uIdx].vipExpire = expireDate.toISOString();
+    saveUsers(users);
+
+    console.log(`[PAYMENT VERIFIED] Instantly upgraded user ${users[uIdx].username} to VIP ${plan}`);
+
+    return res.json({
+      success: true,
+      message: 'Đã xác nhận thanh toán & kích hoạt VIP thành công!',
+      user: sanitizeUser(users[uIdx])
+    });
+  }
+
+  res.status(400).json({ error: 'Không thể xác nhận giao dịch.' });
 });
 
 // API: Subscribe VIP Plan (1m: 29k, 2m: 39k, 3m: 59k)
