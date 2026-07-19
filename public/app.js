@@ -100,8 +100,20 @@ document.addEventListener('DOMContentLoaded', () => {
   createParticles();
   initAuth();
 
-  // ---- Auth Functions ----
+  // ---- Auth Functions (Permanent Session Storage) ----
   async function initAuth() {
+    // 1. Instantly load cached user profile from localStorage
+    const cachedUserData = localStorage.getItem('sc_user_data');
+    if (cachedUserData) {
+      try {
+        currentUser = JSON.parse(cachedUserData);
+        updateUserUI();
+      } catch (e) {
+        console.warn('Failed to parse cached user data:', e);
+      }
+    }
+
+    // 2. Refresh user state from server
     if (authToken) {
       try {
         const res = await fetch('/api/auth/me', {
@@ -110,12 +122,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (res.ok) {
           const data = await res.json();
           currentUser = data.user;
-        } else {
+          localStorage.setItem('sc_user_data', JSON.stringify(currentUser));
+        } else if (res.status === 401) {
+          // Only clear if server explicitly says token is invalid
           authToken = null;
+          currentUser = null;
           localStorage.removeItem('sc_auth_token');
+          localStorage.removeItem('sc_user_data');
         }
       } catch (e) {
-        console.warn('Auth check failed:', e);
+        console.warn('Auth network check offline/delayed:', e);
       }
     }
     updateUserUI();
@@ -244,6 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
     currentUser = null;
     authToken = null;
     localStorage.removeItem('sc_auth_token');
+    localStorage.removeItem('sc_user_data');
     updateUserUI();
   });
 
@@ -263,8 +280,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!res.ok) throw new Error(data.error || 'Đăng nhập thất bại.');
 
       authToken = data.token;
-      localStorage.setItem('sc_auth_token', authToken);
       currentUser = data.user;
+      localStorage.setItem('sc_auth_token', authToken);
+      localStorage.setItem('sc_user_data', JSON.stringify(currentUser));
       updateUserUI();
       closeAuthModal();
 
@@ -294,8 +312,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!res.ok) throw new Error(data.error || 'Đăng ký thất bại.');
 
       authToken = data.token;
-      localStorage.setItem('sc_auth_token', authToken);
       currentUser = data.user;
+      localStorage.setItem('sc_auth_token', authToken);
+      localStorage.setItem('sc_user_data', JSON.stringify(currentUser));
       updateUserUI();
       closeAuthModal();
 
