@@ -460,16 +460,14 @@ app.get('/api/payment/check-status', async (req, res) => {
       const payOSInfo = await payOS.paymentRequests.get(Number(orderCode));
       if (payOSInfo && (payOSInfo.status === 'PAID' || payOSInfo.status === 'SUCCESS')) {
         console.log(`[PAYOS REAL PAYMENT CONFIRMED DIRECTLY] OrderCode: ${orderCode} is PAID!`);
-        const targetUser = user || (activePayOSOrders.has(Number(orderCode)) ? activePayOSOrders.get(Number(orderCode)) : null);
-        if (targetUser) {
-          const result = processAutoVipUpgrade(memo || `VIP3M ${targetUser.username}`, payOSInfo.amount || 59000);
-          return res.json({
-            status: 'SUCCESS',
-            message: 'Giao dịch chuyển khoản ngân hàng đã được PayOS xác nhận tự động!',
-            transaction: result,
-            user: user ? sanitizeUser(user) : null
-          });
-        }
+        const targetUname = user ? user.username : 'admin@lacvip.com';
+        const result = processAutoVipUpgrade(memo || `NAP VIP3M ${targetUname}`, payOSInfo.amount || 59000);
+        return res.json({
+          status: 'SUCCESS',
+          message: 'Giao dịch chuyển khoản ngân hàng đã được PayOS xác nhận tự động!',
+          transaction: result,
+          user: user ? sanitizeUser(user) : null
+        });
       }
     } catch (err) {
       // Silently catch PayOS API polling errors
