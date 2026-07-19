@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Lắc Downloader - Tải nhạc SoundCloud chất lượng gốc - Dán link và tải về ngay">
+  <title>Lắc Downloader - Tải Nhạc Chất Lượng Gốc</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <!-- Animated Background -->
+  <div class="bg-animation">
+    <div class="wave wave-1"></div>
+    <div class="wave wave-2"></div>
+    <div class="wave wave-3"></div>
+    <div class="particles" id="particles"></div>
+  </div>
+
+  <!-- Main Container -->
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <!-- User Auth Bar -->
+      <div class="user-bar">
+        <div id="userGuest" class="user-guest">
+          <button id="loginOpenBtn" class="btn-auth">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+              <polyline points="10 17 15 12 10 7"></polyline>
+              <line x1="15" y1="12" x2="3" y2="12"></line>
+            </svg>
+            <span>Đăng Nhập</span>
+          </button>
+        </div>
+        <div id="userProfile" class="user-profile hidden">
+          <div class="user-avatar-wrapper" title="Bấm vào Avatar để Nạp VIP / Đổi Ảnh">
+            <div class="user-avatar" id="userAvatar">U</div>
+            <button id="changeAvatarBtn" class="btn-change-avatar" title="Đổi ảnh đại diện">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+            </button>
+            <input type="file" id="avatarFileInput" accept="image/*" class="hidden">
+          </div>
+          <div class="user-info" id="userInfoClickArea" title="Bấm để Nạp VIP">
+            <span class="user-name" id="userName">User</span>
+            <span class="user-badge" id="userBadge">Khách</span>
+          </div>
+          <button id="logoutBtn" class="btn-logout" title="Đăng xuất">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="24" cy="24" r="23" stroke="url(#grad)" stroke-width="2" />
+            <path d="M16 30V18L22 24L16 30Z" fill="url(#grad)" />
+            <rect x="24" y="16" width="2.5" height="16" rx="1.25" fill="url(#grad)" />
+            <rect x="28.5" y="12" width="2.5" height="24" rx="1.25" fill="url(#grad)" />
+            <rect x="33" y="18" width="2.5" height="12" rx="1.25" fill="url(#grad)" />
+            <defs>
+              <linearGradient id="grad" x1="0" y1="0" x2="48" y2="48">
+                <stop stop-color="#ff6a00" />
+                <stop offset="1" stop-color="#ee0979" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="logo-text">
+          <h1>Lắc <span class="gradient-text">Downloader</span></h1>
+          <p class="tagline">Tải nhạc chất lượng gốc • Nhanh & Chất lượng cao</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- Search Section -->
+    <section class="search-section">
+      <div class="glass-card search-card">
+        <div class="input-wrapper">
+          <div class="input-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+            </svg>
+          </div>
+          <input type="url" id="urlInput" placeholder="Dán link SoundCloud vào đây..." autocomplete="off"
+            spellcheck="false">
+          <button id="clearBtn" class="clear-btn hidden" title="Xóa">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <button id="fetchBtn" class="btn-primary">
+          <span class="btn-content">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <span>Lấy Thông Tin</span>
+          </span>
+          <div class="btn-loader hidden">
+            <div class="spinner"></div>
+            <span>Đang xử lý...</span>
+          </div>
+        </button>
+      </div>
+    </section>
+
+    <!-- Error Message -->
+    <div id="errorMsg" class="error-message hidden">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="15" y1="9" x2="9" y2="15" />
+        <line x1="9" y1="9" x2="15" y2="15" />
+      </svg>
+      <span id="errorText"></span>
+    </div>
+
+    <!-- Result Section -->
+    <section id="resultSection" class="result-section hidden">
+      <div class="glass-card result-card">
+        <div class="track-info">
+          <div class="track-thumbnail-wrapper">
+            <img id="trackThumbnail" src="" alt="Album art" class="track-thumbnail">
+            <div class="thumbnail-overlay">
+              <div class="play-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                  <polygon points="5,3 19,12 5,21" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div class="track-details">
+            <h2 id="trackTitle" class="track-title"></h2>
+            <p id="trackArtist" class="track-artist"></p>
+            <div class="track-meta">
+              <div class="meta-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12,6 12,12 16,14" />
+                </svg>
+                <span id="trackDuration"></span>
+              </div>
+              <div class="meta-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 18V5l12-2v13" />
+                  <circle cx="6" cy="18" r="3" />
+                  <circle cx="18" cy="16" r="3" />
+                </svg>
+                <span id="trackFormat"></span>
+              </div>
+              <div class="meta-item" id="trackSizeMeta">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7,10 12,15 17,10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                <span id="trackSize"></span>
+              </div>
+              <div class="meta-item" id="trackViewsMeta">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                <span id="trackViews"></span>
+              </div>
+            </div>
+            <div class="quality-badge" id="qualityBadge">
+              <span class="badge-glow"></span>
+              <svg id="qualityIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22,4 12,14.01 9,11.01" />
+              </svg>
+              <span id="qualityText">Chất lượng gốc</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Waveform Animation -->
+        <div class="waveform">
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+        </div>
+
+        <!-- Format Selector -->
+        <div class="format-selector">
+          <span class="format-label">Định dạng tải:</span>
+          <div class="format-buttons">
+            <button class="format-btn active" data-format="original" id="formatOriginal">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18V5l12-2v13" />
+                <circle cx="6" cy="18" r="3" />
+                <circle cx="18" cy="16" r="3" />
+              </svg>
+              Gốc
+            </button>
+            <button class="format-btn" data-format="mp3" id="formatMp3">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+                <path
+                  d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
+              </svg>
+              MP3
+            </button>
+            <button class="format-btn" data-format="wav" id="formatWav">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M2 10v4M6 6v12M10 3v18M14 8v8M18 5v14M22 10v4" />
+              </svg>
+              WAV
+            </button>
+            <button class="format-btn" data-format="mp4" id="formatMp4">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18" />
+                <line x1="7" y1="2" x2="7" y2="22" />
+                <line x1="17" y1="2" x2="17" y2="22" />
+                <line x1="2" y1="12" x2="22" y2="12" />
+                <line x1="2" y1="7" x2="7" y2="7" />
+                <line x1="2" y1="17" x2="7" y2="17" />
+                <line x1="17" y1="7" x2="22" y2="7" />
+                <line x1="17" y1="17" x2="22" y2="17" />
+              </svg>
+              MP4
+            </button>
+          </div>
+        </div>
+
+        <!-- Download Button -->
+        <button id="downloadBtn" class="btn-download">
+          <span class="btn-content">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7,10 12,15 17,10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span>Tải Về Ngay</span>
+          </span>
+          <div class="btn-loader hidden">
+            <div class="spinner"></div>
+            <span>Đang tải...</span>
+          </div>
+        </button>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>🎵 Được tạo cho mục đích cá nhân • Hỗ trợ tải nhạc SoundCloud tốc độ cao</p>
+    </footer>
+  </div>
+
+  <!-- Modal Auth (Đăng nhập / Đăng ký) -->
+  <div id="authModal" class="modal-overlay hidden">
+    <div class="modal-card glass-card">
+      <button class="modal-close" id="authModalClose">&times;</button>
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tabLoginBtn">Đăng Nhập</button>
+        <button class="auth-tab" id="tabRegisterBtn">Đăng Ký</button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="loginForm" class="auth-form">
+        <div class="form-group">
+          <label>Tên đăng nhập</label>
+          <input type="text" id="loginUsername" placeholder="Nhập tên đăng nhập..." required autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label>Mật khẩu</label>
+          <input type="password" id="loginPassword" placeholder="Nhập mật khẩu..." required autocomplete="current-password">
+        </div>
+        <div class="auth-error hidden" id="loginError"></div>
+        <button type="submit" class="btn-primary auth-submit">
+          <span>Đăng Nhập</span>
+        </button>
+        <div class="auth-divider"><span>Hoặc</span></div>
+        <button type="button" id="quickDemoBtn" class="btn-secondary">
+          ⚡ Đăng Nhập Dùng Thử (Demo User)
+        </button>
+      </form>
+
+      <!-- Register Form -->
+      <form id="registerForm" class="auth-form hidden">
+        <div class="form-group">
+          <label>Tên hiển thị</label>
+          <input type="text" id="regName" placeholder="Ví dụ: Nguyễn Văn A..." required>
+        </div>
+        <div class="form-group">
+          <label>Tên đăng nhập</label>
+          <input type="text" id="regUsername" placeholder="Nhập tên đăng nhập..." required autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label>Mật khẩu</label>
+          <input type="password" id="regPassword" placeholder="Nhập mật khẩu..." required autocomplete="new-password">
+        </div>
+        <div class="auth-error hidden" id="regError"></div>
+        <button type="submit" class="btn-primary auth-submit">
+          <span>Tạo Tài Khoản</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Gói VIP Tải Nhạc -->
+  <div id="vipModal" class="modal-overlay hidden">
+    <div class="modal-card vip-modal-card glass-card">
+      <button class="modal-close" id="vipModalClose">&times;</button>
+      <div class="vip-header">
+        <div class="vip-crown">👑</div>
+        <h2>Nâng Cấp Gói VIP Tải Nhạc</h2>
+        <p>Để tải bài hát này về máy, vui lòng chọn gói VIP phù hợp dưới đây:</p>
+      </div>
+
+      <div class="vip-plans">
+        <!-- Gói 1 tháng (Tháng đầu) -->
+        <div class="plan-card" data-plan="1m">
+          <div class="plan-badge">Tháng Đầu</div>
+          <div class="plan-title">Gói 1 Tháng</div>
+          <div class="plan-price">29.000<span class="currency">đ</span></div>
+          <div class="plan-duration">1 Tháng dùng thử</div>
+          <ul class="plan-features">
+            <li>✓ Tải nhạc không giới hạn 30 ngày</li>
+            <li>✓ Hỗ trợ MP3, WAV, Lossless</li>
+            <li>✓ Tốc độ tải chuẩn</li>
+          </ul>
+        </div>
+
+        <!-- Gói 2 tháng -->
+        <div class="plan-card" data-plan="2m">
+          <div class="plan-badge badge-save">Tiết kiệm</div>
+          <div class="plan-title">Gói 2 Tháng</div>
+          <div class="plan-price">39.000<span class="currency">đ</span></div>
+          <div class="plan-duration">2 Tháng sử dụng</div>
+          <ul class="plan-features">
+            <li>✓ Tải nhạc không giới hạn 60 ngày</li>
+            <li>✓ Tất cả định dạng chất lượng cao</li>
+            <li>✓ Tốc độ ưu tiên</li>
+          </ul>
+        </div>
+
+        <!-- Gói 3 tháng (Cao nhất) -->
+        <div class="plan-card active popular" data-plan="3m">
+          <div class="plan-badge badge-hot">GÓI CAO NHẤT 🔥</div>
+          <div class="plan-title">Gói 3 Tháng</div>
+          <div class="plan-price">59.000<span class="currency">đ</span></div>
+          <div class="plan-duration">3 Tháng VIP tối ưu nhất</div>
+          <ul class="plan-features">
+            <li>✓ Tải nhạc không giới hạn 90 ngày</li>
+            <li>✓ Chất lượng gốc Lossless tối đa</li>
+            <li>✓ Băng thông ưu tiên VIP 24/7</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="vip-checkout-box">
+        <button id="confirmVipBtn" class="btn-vip-checkout">
+          <span>Kích Hoạt VIP Ngay (59.000đ)</span>
+        </button>
+        <p class="vip-guarantee">🔒 Cam kết hoàn tiền trong 7 ngày nếu không hài lòng</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Thanh Toán VietQR Ngân Hàng Tự Động -->
+  <div id="paymentModal" class="modal-overlay hidden">
+    <div class="modal-card payment-modal-card glass-card">
+      <button class="modal-close" id="paymentModalClose">&times;</button>
+      <div class="payment-header">
+        <div class="bank-brand-badge">
+          <span class="bank-tag tcb">Techcombank</span>
+          <span class="vietqr-tag">VietQR</span>
+        </div>
+        <h3>Quét Mã QR Chuyển Khoản Ngân Hàng</h3>
+        <p id="paymentPlanInfo" class="payment-plan-highlight">Gói 3 Tháng - 59.000đ</p>
+      </div>
+
+      <!-- VietQR Image Container -->
+      <div class="qr-box vietqr-box">
+        <img id="vietqrImg" src="" alt="Mã QR Thanh toán Techcombank VietQR" class="vietqr-img">
+        <div class="qr-scan-line"></div>
+      </div>
+
+      <!-- Bank Details list with quick copy -->
+      <div class="bank-details-card">
+        <div class="bank-detail-item">
+          <span class="detail-label">Ngân hàng:</span>
+          <span class="detail-val highlight" id="bankNameVal">Techcombank (TCB)</span>
+        </div>
+        <div class="bank-detail-item">
+          <span class="detail-label">Số tài khoản:</span>
+          <div class="detail-val-copy">
+            <span class="detail-val copyable" id="accountNoVal">509868686868</span>
+            <button class="btn-copy" data-copy="509868686868" title="Sao chép số tài khoản">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="bank-detail-item">
+          <span class="detail-label">Chủ tài khoản:</span>
+          <span class="detail-val" id="accountNameVal">VU VAN QUYEN</span>
+        </div>
+        <div class="bank-detail-item">
+          <span class="detail-label">Số tiền:</span>
+          <div class="detail-val-copy">
+            <span class="detail-val amount-val" id="amountVal">59.000đ</span>
+            <button class="btn-copy" id="copyAmountBtn" data-copy="59000" title="Sao chép số tiền">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="bank-detail-item">
+          <span class="detail-label">Nội dung CK:</span>
+          <div class="detail-val-copy">
+            <span class="detail-val memo-val" id="memoVal">NAP VIP3M DEMO</span>
+            <button class="btn-copy" id="copyMemoBtn" data-copy="NAP VIP3M DEMO" title="Sao chép nội dung chuyển khoản">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <p class="qr-notice">💡 <i>Quét mã trên bằng ứng dụng <b>Techcombank, MB, VCB, MoMo, VNPay</b> hoặc bất kỳ App Bank nào. Tiền sẽ chuyển trực tiếp vào số tài khoản <b>509868686868 (VU VAN QUYEN)</b>.</i></p>
+
+      <div class="payment-action">
+        <button id="simulatePayBtn" class="btn-primary btn-success-pay">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22,4 12,14.01 9,11.01"/>
+          </svg>
+          <span>Tôi Đã Chuyển Tiền (Kích Hoạt VIP Ngay)</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>

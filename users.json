@@ -1,0 +1,33 @@
+[
+  {
+    "id": "usr_mrr8svubj8tm",
+    "username": "demouser",
+    "password": "password123",
+    "name": "Demo User",
+    "vip": false,
+    "vipPlan": null,
+    "vipExpire": null,
+    "createdAt": "2026-07-19T03:35:04.499Z"
+  },
+  {
+    "id": "usr_vuquyenxc_admin",
+    "username": "vuquyenxc",
+    "password": "123456",
+    "name": "Vũ Quyền (Admin VIP)",
+    "vip": true,
+    "vipPlan": "3m",
+    "vipExpire": "2099-12-31T23:59:59.000Z",
+    "role": "admin",
+    "createdAt": "2026-07-19T10:40:00.000Z"
+  },
+  {
+    "id": "usr_mrr91niee5is",
+    "username": "admin@lacvip.com",
+    "password": "123456",
+    "name": "anh quyen dz ko ai số 1",
+    "vip": false,
+    "vipPlan": null,
+    "vipExpire": null,
+    "createdAt": "2026-07-19T03:41:53.606Z"
+  }
+]

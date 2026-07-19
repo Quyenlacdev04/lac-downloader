@@ -1,0 +1,625 @@
+const express = require('express');
+const cors = require('cors');
+const { exec, execFile } = require('child_process');
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
+
+const app = express();
+const PORT = 3000;
+
+// Resolve yt-dlp path
+const YTDLP_PATH = (() => {
+  // Try common locations
+  const candidates = [
+    path.join(os.homedir(), 'AppData', 'Roaming', 'Python', 'Python314', 'Scripts', 'yt-dlp.exe'),
+    path.join(os.homedir(), 'AppData', 'Roaming', 'Python', 'Python313', 'Scripts', 'yt-dlp.exe'),
+    path.join(os.homedir(), 'AppData', 'Roaming', 'Python', 'Python312', 'Scripts', 'yt-dlp.exe'),
+    path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Python', 'Python314', 'Scripts', 'yt-dlp.exe'),
+    path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Python', 'Python313', 'Scripts', 'yt-dlp.exe'),
+    'yt-dlp', // fallback to PATH
+  ];
+  for (const p of candidates) {
+    if (p === 'yt-dlp') return p;
+    try { if (fs.existsSync(p)) return p; } catch {}
+  }
+  return 'yt-dlp';
+})();
+
+console.log(`[CONFIG] yt-dlp path: ${YTDLP_PATH}`);
+
+// Resolve ffmpeg path
+const FFMPEG_PATH = (() => {
+  const candidates = [
+    path.join(os.homedir(), 'AppData', 'Local', 'Microsoft', 'WinGet', 'Links', 'ffmpeg.exe'),
+    path.join(os.homedir(), 'AppData', 'Local', 'Microsoft', 'WinGet', 'Packages', 'Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe', 'ffmpeg-8.1.2-full_build', 'bin', 'ffmpeg.exe'),
+    'ffmpeg',
+  ];
+  for (const p of candidates) {
+    if (p === 'ffmpeg') return p;
+    try { if (fs.existsSync(p)) return p; } catch {}
+  }
+  return 'ffmpeg';
+})();
+
+console.log(`[CONFIG] ffmpeg path: ${FFMPEG_PATH}`);
+
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Bank Config for VietQR Payments
+const BANK_CONFIG = {
+  bankId: 'TCB', // Techcombank
+  bankName: 'Techcombank',
+  accountNo: '509868686868',
+  accountName: 'VU VAN QUYEN'
+};
+
+app.get('/api/config/bank', (req, res) => {
+  res.json(BANK_CONFIG);
+});
+
+// Simple JSON DB for Users
+const USERS_FILE = path.join(__dirname, 'users.json');
+
+function loadUsers() {
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+    }
+  } catch (err) {
+    console.error('[AUTH] Failed to load users.json:', err.message);
+  }
+  return [];
+}
+
+function saveUsers(users) {
+  try {
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
+  } catch (err) {
+    console.error('[AUTH] Failed to save users.json:', err.message);
+  }
+}
+
+// Memory tokens store (token -> userId)
+const sessions = new Map();
+
+function getUserFromReq(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  const token = authHeader.split(' ')[1];
+  const userId = sessions.get(token);
+  if (!userId) return null;
+  const users = loadUsers();
+  return users.find(u => u.id === userId) || null;
+}
+
+// API: Auth Register
+app.post('/api/auth/register', (req, res) => {
+  try {
+    const { username, password, name } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Vui lòng điền đầy đủ tên đăng nhập và mật khẩu.' });
+    }
+
+    const users = loadUsers();
+    if (users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
+      return res.status(400).json({ error: 'Tên đăng nhập đã tồn tại.' });
+    }
+
+    const newUser = {
+      id: 'usr_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 4),
+      username: username.trim(),
+      password: password, // In production use bcrypt
+      name: (name || username).trim(),
+      vip: false,
+      vipPlan: null,
+      vipExpire: null,
+      createdAt: new Date().toISOString()
+    };
+
+    users.push(newUser);
+    saveUsers(users);
+
+    const token = 'tok_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
+    sessions.set(token, newUser.id);
+
+    const userObj = { ...newUser };
+    delete userObj.password;
+
+    console.log(`[AUTH] User registered: ${userObj.username}`);
+    res.json({ token, user: userObj });
+  } catch (err) {
+    res.status(500).json({ error: 'Lỗi đăng ký tài khoản.' });
+  }
+});
+
+// API: Auth Login
+app.post('/api/auth/login', (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Vui lòng nhập tên đăng nhập và mật khẩu.' });
+    }
+
+    const users = loadUsers();
+    const user = users.find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === password);
+
+    if (!user) {
+      return res.status(401).json({ error: 'Tên đăng nhập hoặc mật khẩu không chính xác.' });
+    }
+
+    // Check VIP expiration
+    if (user.vip && user.vipExpire && new Date(user.vipExpire) < new Date()) {
+      user.vip = false;
+      user.vipPlan = null;
+      user.vipExpire = null;
+      saveUsers(users);
+    }
+
+    const token = 'tok_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
+    sessions.set(token, user.id);
+
+    const userObj = { ...user };
+    delete userObj.password;
+
+    console.log(`[AUTH] User logged in: ${userObj.username} (VIP: ${userObj.vip})`);
+    res.json({ token, user: userObj });
+  } catch (err) {
+    res.status(500).json({ error: 'Lỗi đăng nhập.' });
+  }
+});
+
+function sanitizeUser(user) {
+  const obj = { ...user };
+  delete obj.password;
+  const today = new Date().toISOString().split('T')[0];
+  if (obj.lastDownloadDate !== today) {
+    obj.freeDownloadsToday = 0;
+    obj.lastDownloadDate = today;
+  }
+  obj.remainingFree = Math.max(0, 2 - (obj.freeDownloadsToday || 0));
+  return obj;
+}
+
+// API: Check & Consume Free Download (2 free downloads / day)
+app.post('/api/auth/use-free-download', (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Vui lòng đăng nhập.' });
+  }
+
+  const users = loadUsers();
+  const userIndex = users.findIndex(u => u.id === user.id);
+  if (userIndex === -1) {
+    return res.status(404).json({ error: 'Không tìm thấy tài khoản.' });
+  }
+
+  const targetUser = users[userIndex];
+  const today = new Date().toISOString().split('T')[0];
+
+  // Check VIP expiration
+  if (targetUser.vip && targetUser.vipExpire && new Date(targetUser.vipExpire) < new Date()) {
+    targetUser.vip = false;
+    targetUser.vipPlan = null;
+    targetUser.vipExpire = null;
+  }
+
+  // VIP users have unlimited downloads
+  if (targetUser.vip) {
+    saveUsers(users);
+    return res.json({
+      success: true,
+      isVip: true,
+      remaining: 'Không giới hạn',
+      user: sanitizeUser(targetUser)
+    });
+  }
+
+  // Check daily reset for free user
+  if (targetUser.lastDownloadDate !== today) {
+    targetUser.freeDownloadsToday = 0;
+    targetUser.lastDownloadDate = today;
+  }
+
+  const MAX_FREE_DAILY = 2;
+  const used = targetUser.freeDownloadsToday || 0;
+
+  if (used >= MAX_FREE_DAILY) {
+    saveUsers(users);
+    return res.status(403).json({
+      error: 'Bạn đã dùng hết 2 lượt tải miễn phí hôm nay. Vui lòng nâng cấp VIP để tiếp tục tải.',
+      needVip: true,
+      remaining: 0,
+      user: sanitizeUser(targetUser)
+    });
+  }
+
+  targetUser.freeDownloadsToday = used + 1;
+  saveUsers(users);
+
+  const remaining = MAX_FREE_DAILY - targetUser.freeDownloadsToday;
+  console.log(`[FREE DOWNLOAD] User ${targetUser.username} used free download (${targetUser.freeDownloadsToday}/${MAX_FREE_DAILY})`);
+
+  res.json({
+    success: true,
+    isVip: false,
+    usedToday: targetUser.freeDownloadsToday,
+    remaining: remaining,
+    user: sanitizeUser(targetUser)
+  });
+});
+
+// API: Get current user info
+app.get('/api/auth/me', (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Chưa đăng nhập.' });
+  }
+
+  // Check VIP expiration
+  if (user.vip && user.vipExpire && new Date(user.vipExpire) < new Date()) {
+    user.vip = false;
+    user.vipPlan = null;
+    user.vipExpire = null;
+    const users = loadUsers();
+    const idx = users.findIndex(u => u.id === user.id);
+    if (idx !== -1) {
+      users[idx] = user;
+      saveUsers(users);
+    }
+  }
+
+  res.json({ user: sanitizeUser(user) });
+});
+
+// API: Update User Avatar
+app.post('/api/auth/avatar', (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Vui lòng đăng nhập.' });
+  }
+
+  const { avatar } = req.body;
+  if (!avatar) {
+    return res.status(400).json({ error: 'Thiếu dữ liệu hình ảnh.' });
+  }
+
+  const users = loadUsers();
+  const userIndex = users.findIndex(u => u.id === user.id);
+  if (userIndex === -1) {
+    return res.status(404).json({ error: 'Không tìm thấy tài khoản.' });
+  }
+
+  users[userIndex].avatar = avatar;
+  saveUsers(users);
+
+  res.json({
+    message: 'Cập nhật ảnh đại diện thành công!',
+    user: sanitizeUser(users[userIndex])
+  });
+});
+
+// API: Subscribe VIP Plan (1m: 29k, 2m: 39k, 3m: 59k)
+app.post('/api/auth/subscribe', (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Vui lòng đăng nhập để nâng cấp VIP.' });
+  }
+
+  const { plan } = req.body;
+  if (!['1m', '2m', '3m'].includes(plan)) {
+    return res.status(400).json({ error: 'Gói dịch vụ không hợp lệ.' });
+  }
+
+  const monthsMap = { '1m': 1, '2m': 2, '3m': 3 };
+  const months = monthsMap[plan];
+
+  const users = loadUsers();
+  const userIndex = users.findIndex(u => u.id === user.id);
+  if (userIndex === -1) {
+    return res.status(404).json({ error: 'Không tìm thấy người dùng.' });
+  }
+
+  const now = new Date();
+  let expireDate = new Date();
+  if (users[userIndex].vip && users[userIndex].vipExpire && new Date(users[userIndex].vipExpire) > now) {
+    expireDate = new Date(users[userIndex].vipExpire);
+  }
+  expireDate.setMonth(expireDate.getMonth() + months);
+
+  users[userIndex].vip = true;
+  users[userIndex].vipPlan = plan;
+  users[userIndex].vipExpire = expireDate.toISOString();
+
+  saveUsers(users);
+
+  const updatedUser = { ...users[userIndex] };
+  delete updatedUser.password;
+
+  console.log(`[AUTH] User ${updatedUser.username} upgraded to VIP plan ${plan} until ${updatedUser.vipExpire}`);
+
+  res.json({
+    message: 'Nâng cấp VIP thành công!',
+    user: updatedUser
+  });
+});
+
+// Validate SoundCloud URL
+function isValidSoundCloudUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.hostname === 'soundcloud.com' ||
+      parsed.hostname === 'www.soundcloud.com' ||
+      parsed.hostname === 'm.soundcloud.com' ||
+      parsed.hostname === 'on.soundcloud.com'
+    );
+  } catch {
+    return false;
+  }
+}
+
+// Helper: run yt-dlp command
+function runYtDlp(args) {
+  return new Promise((resolve, reject) => {
+    // Use execFile for safety and proper argument handling
+    execFile(YTDLP_PATH, args, { maxBuffer: 10 * 1024 * 1024, timeout: 120000 }, (error, stdout, stderr) => {
+      if (error) {
+        console.error('yt-dlp error:', stderr || error.message);
+        reject(new Error(stderr || error.message));
+      } else {
+        resolve(stdout.trim());
+      }
+    });
+  });
+}
+
+// API: Get track info
+app.post('/api/info', async (req, res) => {
+  try {
+    const { url } = req.body;
+
+    if (!url || !isValidSoundCloudUrl(url)) {
+      return res.status(400).json({
+        error: 'URL không hợp lệ. Vui lòng nhập link SoundCloud đúng định dạng.'
+      });
+    }
+
+    console.log(`[INFO] Fetching info for: ${url}`);
+
+    const output = await runYtDlp([
+      '--dump-json',
+      '--no-warnings',
+      url
+    ]);
+
+    const info = JSON.parse(output);
+
+    // Find best audio format
+    const formats = info.formats || [];
+    let bestFormat = null;
+    let bestBitrate = 0;
+
+    for (const fmt of formats) {
+      const abr = fmt.abr || fmt.tbr || 0;
+      if (abr > bestBitrate) {
+        bestBitrate = abr;
+        bestFormat = fmt;
+      }
+    }
+
+    const trackInfo = {
+      title: info.title || 'Unknown',
+      artist: info.uploader || info.artist || 'Unknown',
+      duration: info.duration || 0,
+      thumbnail: info.thumbnail || '',
+      description: info.description ? info.description.substring(0, 200) : '',
+      genre: info.genre || '',
+      upload_date: info.upload_date || '',
+      view_count: info.view_count || 0,
+      like_count: info.like_count || 0,
+      format: bestFormat ? {
+        ext: bestFormat.ext || 'mp3',
+        abr: bestBitrate,
+        acodec: bestFormat.acodec || 'unknown',
+        filesize: bestFormat.filesize || bestFormat.filesize_approx || null
+      } : { ext: 'mp3', abr: 128, acodec: 'mp3', filesize: null }
+    };
+
+    console.log(`[INFO] Track found: ${trackInfo.title} - ${trackInfo.artist}`);
+    res.json(trackInfo);
+  } catch (error) {
+    console.error('[ERROR] Info fetch failed:', error.message);
+    res.status(500).json({
+      error: 'Không thể lấy thông tin bài hát. Vui lòng kiểm tra lại link.'
+    });
+  }
+});
+
+// Store prepared downloads (token -> file info)
+const preparedDownloads = new Map();
+
+// Cleanup old prepared downloads every 10 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, info] of preparedDownloads) {
+    if (now - info.createdAt > 10 * 60 * 1000) {
+      try {
+        fs.unlinkSync(info.filePath);
+        fs.rmdirSync(info.tmpDir);
+      } catch {}
+      preparedDownloads.delete(token);
+    }
+  }
+}, 10 * 60 * 1000);
+
+// API: Prepare download (download file to server temp, return token)
+app.post('/api/prepare', async (req, res) => {
+  try {
+    const { url, format } = req.body;
+
+    if (!url || !isValidSoundCloudUrl(url)) {
+      return res.status(400).json({
+        error: 'URL không hợp lệ.'
+      });
+    }
+
+    console.log(`[PREPARE] Starting download for: ${url} (format: ${format || 'original'})`);
+
+    // Get track info for filename
+    let title = 'soundcloud_track';
+    try {
+      const infoOutput = await runYtDlp(['--dump-json', '--no-warnings', url]);
+      const info = JSON.parse(infoOutput);
+      title = `${info.uploader || 'Unknown'} - ${info.title || 'Unknown'}`;
+      title = title.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
+    } catch (e) {
+      console.warn('[PREPARE] Could not get track title, using default');
+    }
+
+    // Create temp directory for download
+    const tmpDir = path.join(os.tmpdir(), 'sc-downloader-' + Date.now());
+    fs.mkdirSync(tmpDir, { recursive: true });
+
+    const outputTemplate = path.join(tmpDir, '%(title)s.%(ext)s');
+
+    // Build yt-dlp download arguments based on requested format
+    const downloadArgs = [
+      '--no-warnings',
+      '--no-playlist'
+    ];
+
+    if (FFMPEG_PATH && FFMPEG_PATH !== 'ffmpeg') {
+      downloadArgs.push('--ffmpeg-location', FFMPEG_PATH);
+    }
+
+    if (format === 'mp3') {
+      downloadArgs.push('-f', 'bestaudio/best', '-x', '--audio-format', 'mp3', '--audio-quality', '0');
+    } else if (format === 'wav') {
+      downloadArgs.push('-f', 'bestaudio/best', '-x', '--audio-format', 'wav');
+    } else if (format === 'mp4') {
+      downloadArgs.push('-f', 'bestaudio/best', '-x', '--audio-format', 'mp4');
+    } else {
+      // Original quality (as uploaded)
+      downloadArgs.push('-f', 'bestaudio/best');
+    }
+
+    downloadArgs.push('-o', outputTemplate, url);
+
+    await runYtDlp(downloadArgs);
+
+    // Find the downloaded file
+    const files = fs.readdirSync(tmpDir);
+    if (files.length === 0) {
+      throw new Error('Download failed - no file created');
+    }
+
+    const downloadedFile = path.join(tmpDir, files[0]);
+    const ext = path.extname(files[0]).toLowerCase();
+    const stat = fs.statSync(downloadedFile);
+    const fileName = `${title}${ext}`;
+
+    // Generate token
+    const token = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
+
+    // Store file info
+    preparedDownloads.set(token, {
+      filePath: downloadedFile,
+      tmpDir: tmpDir,
+      fileName: fileName,
+      ext: ext,
+      size: stat.size,
+      createdAt: Date.now()
+    });
+
+    console.log(`[PREPARE] File ready: ${fileName} (${(stat.size / 1024 / 1024).toFixed(1)} MB) token=${token}`);
+
+    res.json({
+      token: token,
+      fileName: fileName,
+      size: stat.size
+    });
+
+  } catch (error) {
+    console.error('[ERROR] Prepare failed:', error.message);
+    res.status(500).json({
+      error: 'Không thể tải bài hát. Vui lòng thử lại.'
+    });
+  }
+});
+
+// API: Serve prepared file (direct download with proper filename)
+app.get('/api/serve/:token', (req, res) => {
+  const { token } = req.params;
+  const fileInfo = preparedDownloads.get(token);
+
+  if (!fileInfo) {
+    return res.status(404).json({ error: 'File không tồn tại hoặc đã hết hạn.' });
+  }
+
+  if (!fs.existsSync(fileInfo.filePath)) {
+    preparedDownloads.delete(token);
+    return res.status(404).json({ error: 'File đã bị xóa.' });
+  }
+
+  const mimeTypes = {
+    '.mp3': 'audio/mpeg',
+    '.opus': 'audio/opus',
+    '.ogg': 'audio/ogg',
+    '.m4a': 'audio/mp4',
+    '.wav': 'audio/wav',
+    '.flac': 'audio/flac',
+    '.aac': 'audio/aac',
+    '.wma': 'audio/x-ms-wma',
+  };
+
+  const contentType = mimeTypes[fileInfo.ext] || 'application/octet-stream';
+  const asciiName = fileInfo.fileName.replace(/[^\x20-\x7E]/g, '_');
+
+  console.log(`[SERVE] Sending: ${fileInfo.fileName}`);
+
+  res.setHeader('Content-Type', contentType);
+  res.setHeader('Content-Disposition', `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(fileInfo.fileName)}`);
+  res.setHeader('Content-Length', fileInfo.size);
+
+  const readStream = fs.createReadStream(fileInfo.filePath);
+  readStream.pipe(res);
+
+  readStream.on('end', () => {
+    // Cleanup
+    try {
+      fs.unlinkSync(fileInfo.filePath);
+      fs.rmdirSync(fileInfo.tmpDir);
+    } catch {}
+    preparedDownloads.delete(token);
+  });
+
+  readStream.on('error', (err) => {
+    console.error('[SERVE] Stream error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Lỗi khi gửi file.' });
+    }
+  });
+});
+
+// Health check
+app.get('/api/health', (req, res) => {
+  execFile(YTDLP_PATH, ['--version'], (error, stdout) => {
+    res.json({
+      status: error ? 'error' : 'ok',
+      ytdlp_version: error ? null : stdout.trim(),
+      message: error ? 'yt-dlp chưa được cài đặt' : 'Sẵn sàng hoạt động'
+    });
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`
+  ╔══════════════════════════════════════════╗
+  ║   🎵 SoundCloud Downloader Server       ║
+  ║   Đang chạy tại: http://localhost:${PORT}  ║
+  ╚══════════════════════════════════════════╝
+  `);
+});

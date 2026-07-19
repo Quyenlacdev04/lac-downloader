@@ -1,0 +1,5 @@
+node_modules/
+*.log
+test_output.mp3
+.DS_Store
+Thumbs.db
