@@ -4,7 +4,7 @@ const { exec, execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const PayOS = require('@payos/node');
+const { PayOS } = require('@payos/node');
 
 const app = express();
 const PORT = 3000;
@@ -53,6 +53,25 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/favicon.ico', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'logo.png'));
 });
+
+// PayOS Credentials (Configured from User's PayOS Channel for KienlongBank 6909092005)
+const PAYOS_CLIENT_ID = process.env.PAYOS_CLIENT_ID || '9dad6bbc-65a9-4559-bb38-cee47ebe684b';
+const PAYOS_API_KEY = process.env.PAYOS_API_KEY || 'db65598a-5d6c-4abb-b239-a15bdab8363f';
+const PAYOS_CHECKSUM_KEY = process.env.PAYOS_CHECKSUM_KEY || '22a0e7479606d64bfd181d2854267bd96518102534926';
+
+let payOS = null;
+if (PAYOS_CLIENT_ID && PAYOS_API_KEY && PAYOS_CHECKSUM_KEY) {
+  try {
+    payOS = new PayOS({
+      clientId: PAYOS_CLIENT_ID,
+      apiKey: PAYOS_API_KEY,
+      checksumKey: PAYOS_CHECKSUM_KEY
+    });
+    console.log('[PAYOS] Official PayOS Real Payment SDK Initialized for KienlongBank (6909092005 - VU VAN QUYEN)');
+  } catch (err) {
+    console.warn('[PAYOS] Failed to initialize PayOS SDK:', err.message);
+  }
+}
 
 // Bank Config for VietQR / PayOS Payments
 const BANK_CONFIG = {
