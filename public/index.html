@@ -408,80 +408,100 @@
     </div>
   </div>
 
-  <!-- Modal Thanh Toán VietQR Ngân Hàng Tự Động -->
+  <!-- Modal Thanh Toán PayOS Checkout chuẩn 1:1 -->
   <div id="paymentModal" class="modal-overlay hidden">
-    <div class="modal-card payment-modal-card glass-card">
-      <button class="modal-close" id="paymentModalClose">&times;</button>
-      <div class="payment-header">
-        <div class="bank-brand-badge">
-          <span class="bank-tag tcb">Techcombank</span>
-          <span class="vietqr-tag">VietQR</span>
+    <div class="payos-checkout-card">
+      <button class="modal-close payos-close" id="paymentModalClose">&times;</button>
+      
+      <!-- PayOS Header -->
+      <div class="payos-header">
+        <div class="payos-brand-left">
+          <img src="logo.png" alt="Lắc Downloader" class="payos-logo-img">
+          <span class="payos-brand-title">LẮC DOWNLOADER</span>
         </div>
-        <h3>Quét Mã QR Chuyển Khoản Ngân Hàng</h3>
-        <p id="paymentPlanInfo" class="payment-plan-highlight">Gói 3 Tháng - 59.000đ</p>
+        <div class="payos-badge-right">
+          <span class="payos-badge"><svg width="18" height="18" viewBox="0 0 24 24" fill="#00c853"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg> PayOS Checkout</span>
+        </div>
       </div>
 
-      <!-- VietQR Image Container -->
-      <div class="qr-box vietqr-box">
-        <img id="vietqrImg" src="" alt="Mã QR Thanh toán Techcombank VietQR" class="vietqr-img">
-        <div class="qr-scan-line"></div>
-      </div>
-
-      <!-- Bank Details list with quick copy -->
-      <div class="bank-details-card">
-        <div class="bank-detail-item">
-          <span class="detail-label">Ngân hàng:</span>
-          <span class="detail-val highlight" id="bankNameVal">Techcombank (TCB)</span>
+      <!-- PayOS Body -->
+      <div class="payos-body">
+        <!-- Top Tip Banner -->
+        <div class="payos-tip-banner">
+          <span class="tip-icon">💡</span>
+          <span>Mở App Ngân hàng bất kỳ để <b>quét mã VietQR</b> hoặc <b>chuyển khoản</b> chính xác số tiền, nội dung bên dưới</span>
         </div>
-        <div class="bank-detail-item">
-          <span class="detail-label">Số tài khoản:</span>
-          <div class="detail-val-copy">
-            <span class="detail-val copyable" id="accountNoVal">509868686868</span>
-            <button class="btn-copy" data-copy="509868686868" title="Sao chép số tài khoản">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+
+        <!-- 2 Columns Grid -->
+        <div class="payos-grid">
+          <!-- Left Column: VietQR Code -->
+          <div class="payos-qr-col">
+            <div class="payos-vietqr-header">
+              <span class="vietqr-pro-text">Viet<span class="qr-red">QR</span> <span class="pro-tag">PRO</span></span>
+            </div>
+            <div class="payos-qr-wrapper">
+              <img id="vietqrImg" src="" alt="VietQR PayOS Checkout" class="payos-qr-img">
+            </div>
+            <div class="payos-napas-footer">
+              <span class="napas-brand">napas 247</span>
+              <span class="bank-subtag" id="bankSubtag">Techcombank</span>
+            </div>
+            <button id="cancelPaymentBtn" class="btn-payos-cancel">Hủy</button>
+          </div>
+
+          <!-- Right Column: Bank Details -->
+          <div class="payos-info-col">
+            <div class="payos-detail-row">
+              <div class="payos-label">Ngân hàng</div>
+              <div class="payos-val bank-val" id="bankNameVal">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="#e30613"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                <span>Ngân hàng TMCP Techcombank</span>
+              </div>
+            </div>
+
+            <div class="payos-detail-row">
+              <div class="payos-label">Chủ tài khoản:</div>
+              <div class="payos-val owner-val" id="accountNameVal">VU VAN QUYEN</div>
+            </div>
+
+            <div class="payos-detail-row has-copy">
+              <div>
+                <div class="payos-label">Số tài khoản:</div>
+                <div class="payos-val acc-no-val" id="accountNoVal">509868686868</div>
+              </div>
+              <button class="btn-payos-copy" data-copy="509868686868">Sao chép</button>
+            </div>
+
+            <div class="payos-detail-row has-copy">
+              <div>
+                <div class="payos-label">Số tiền:</div>
+                <div class="payos-val amount-val-highlight" id="amountVal">59,000 vnđ</div>
+              </div>
+              <button class="btn-payos-copy" id="copyAmountBtn" data-copy="59000">Sao chép</button>
+            </div>
+
+            <div class="payos-detail-row has-copy">
+              <div>
+                <div class="payos-label">Nội dung:</div>
+                <div class="payos-val memo-val-highlight" id="memoVal">NAP VIP3M DEMO</div>
+              </div>
+              <button class="btn-payos-copy" id="copyMemoBtn" data-copy="NAP VIP3M DEMO">Sao chép</button>
+            </div>
+
+            <!-- Auto Polling Status Radar -->
+            <div class="payos-auto-polling" id="autoPollingBox">
+              <div class="radar-pulse"></div>
+              <span id="autoPollingText">🔄 Tự động kiểm tra chuyển khoản từ Techcombank...</span>
+            </div>
+
+            <button id="simulatePayBtn" class="btn-payos-confirm">
+              <span>Kiểm Tra Nhanh / Kích Hoạt Tức Thì</span>
             </button>
+
+            <!-- Bottom Note -->
+            <p class="payos-bottom-note">Lưu ý : Nhập chính xác số tiền <b id="noteAmountVal">59,000</b>, nội dung <b id="noteMemoVal">NAP VIP3M DEMO</b> khi chuyển khoản</p>
           </div>
         </div>
-        <div class="bank-detail-item">
-          <span class="detail-label">Chủ tài khoản:</span>
-          <span class="detail-val" id="accountNameVal">VU VAN QUYEN</span>
-        </div>
-        <div class="bank-detail-item">
-          <span class="detail-label">Số tiền:</span>
-          <div class="detail-val-copy">
-            <span class="detail-val amount-val" id="amountVal">59.000đ</span>
-            <button class="btn-copy" id="copyAmountBtn" data-copy="59000" title="Sao chép số tiền">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            </button>
-          </div>
-        </div>
-        <div class="bank-detail-item">
-          <span class="detail-label">Nội dung CK:</span>
-          <div class="detail-val-copy">
-            <span class="detail-val memo-val" id="memoVal">NAP VIP3M DEMO</span>
-            <button class="btn-copy" id="copyMemoBtn" data-copy="NAP VIP3M DEMO" title="Sao chép nội dung chuyển khoản">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <p class="qr-notice">💡 <i>Quét mã trên bằng ứng dụng <b>Techcombank, MB, VCB, MoMo, VNPay</b> hoặc bất kỳ App Bank nào. Tiền sẽ chuyển trực tiếp vào số tài khoản <b>509868686868 (VU VAN QUYEN)</b>.</i></p>
-
-      <!-- Auto Polling Status Radar -->
-      <div class="auto-polling-box" id="autoPollingBox">
-        <div class="radar-pulse"></div>
-        <span id="autoPollingText">🔄 Đang chờ hệ thống ngân hàng ghi nhận chuyển khoản (Tự động nâng VIP)...</span>
-      </div>
-
-      <div class="payment-action">
-        <button id="simulatePayBtn" class="btn-primary btn-success-pay">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-            <polyline points="22,4 12,14.01 9,11.01"/>
-          </svg>
-          <span>Kiểm Tra Nhanh / Kích Hoạt Tức Thì</span>
-        </button>
       </div>
     </div>
   </div>

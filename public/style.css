@@ -1930,6 +1930,356 @@ body {
   100% { transform: scale(1.6); opacity: 0; }
 }
 
+/* ==========================================
+   PayOS Checkout 1:1 Replica Design
+   ========================================== */
+.payos-checkout-card {
+  position: relative;
+  width: 100%;
+  max-width: 860px;
+  background: #ffffff;
+  color: #212529;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  animation: modalPop 0.3s ease-out;
+}
+
+.payos-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  color: #6c757d;
+  font-size: 1.8rem;
+  z-index: 10;
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+.payos-close:hover {
+  color: #000000;
+}
+
+/* PayOS Header */
+.payos-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 28px;
+  border-bottom: 1px solid #e9ecef;
+  background: #ffffff;
+}
+
+.payos-brand-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.payos-logo-img {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.payos-brand-title {
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: -0.3px;
+  color: #1a1a2e;
+}
+
+.payos-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 20px;
+}
+
+/* PayOS Body */
+.payos-body {
+  padding: 24px 28px 30px;
+  background: #fafafa;
+}
+
+.payos-tip-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 12px 18px;
+  font-size: 0.9rem;
+  color: #333333;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.payos-tip-banner .tip-icon {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+/* 2 Columns Grid */
+.payos-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+/* Left Column: VietQR */
+.payos-qr-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 20px 16px 18px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.payos-vietqr-header {
+  font-weight: 900;
+  font-size: 1.25rem;
+  margin-bottom: 12px;
+  color: #1a202c;
+}
+
+.vietqr-pro-text .qr-red {
+  color: #e53e3e;
+}
+
+.vietqr-pro-text .pro-tag {
+  background: #ecc94b;
+  color: #744210;
+  font-size: 0.68rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
+.payos-qr-wrapper {
+  width: 220px;
+  height: 220px;
+  background: #ffffff;
+  border: 1px solid #edf2f7;
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  margin-bottom: 12px;
+}
+
+.payos-qr-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.payos-napas-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 10px;
+  margin-bottom: 18px;
+  font-size: 0.8rem;
+  color: #718096;
+  font-weight: 600;
+}
+
+.napas-brand {
+  color: #2b6cb0;
+  font-weight: 800;
+}
+
+.btn-payos-cancel {
+  background: #ffffff;
+  border: 1px solid #cbd5e0;
+  color: #4a5568;
+  padding: 8px 32px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-payos-cancel:hover {
+  background: #edf2f7;
+  color: #1a202c;
+}
+
+/* Right Column: Details */
+.payos-info-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.payos-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.92rem;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #edf2f7;
+}
+
+.payos-detail-row:last-of-type {
+  border-bottom: none;
+}
+
+.payos-label {
+  color: #718096;
+  font-size: 0.86rem;
+}
+
+.payos-val {
+  font-weight: 700;
+  color: #1a202c;
+}
+
+.payos-val.bank-val {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #2d3748;
+}
+
+.payos-val.acc-no-val {
+  font-family: monospace;
+  font-size: 1.05rem;
+  letter-spacing: 0.5px;
+}
+
+.payos-val.amount-val-highlight {
+  color: #2b6cb0;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.payos-val.memo-val-highlight {
+  color: #d69e2e;
+  font-family: monospace;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.btn-payos-copy {
+  background: #e6fffa;
+  border: 1px solid #b2f5ea;
+  color: #234e52;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-payos-copy:hover {
+  background: #319795;
+  color: #ffffff;
+  border-color: #319795;
+}
+
+.btn-payos-copy.copied {
+  background: #38a169 !important;
+  color: #ffffff !important;
+  border-color: #38a169 !important;
+}
+
+/* PayOS Auto Polling */
+.payos-auto-polling {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f0fff4;
+  border: 1px solid #c6f6d5;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.84rem;
+  color: #22543d;
+  margin-top: 4px;
+}
+
+.btn-payos-confirm {
+  background: linear-gradient(135deg, #319795 0%, #2b6cb0 100%);
+  color: #ffffff;
+  border: none;
+  padding: 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.96rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(49, 151, 149, 0.3);
+  transition: all 0.2s ease;
+}
+
+.btn-payos-confirm:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(49, 151, 149, 0.4);
+}
+
+.payos-bottom-note {
+  font-size: 0.82rem;
+  color: #718096;
+  line-height: 1.45;
+  margin-top: 4px;
+}
+
+.payos-bottom-note b {
+  color: #e53e3e;
+}
+
+/* Mobile Adaptation for PayOS */
+@media (max-width: 680px) {
+  .payos-checkout-card {
+    max-height: 95vh;
+    overflow-y: auto;
+  }
+
+  .payos-header {
+    padding: 14px 16px;
+  }
+
+  .payos-body {
+    padding: 16px;
+  }
+
+  .payos-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .payos-qr-wrapper {
+    width: 180px;
+    height: 180px;
+  }
+
+  .payos-info-col {
+    padding: 16px;
+    gap: 12px;
+  }
+}
+
+
 
 
 

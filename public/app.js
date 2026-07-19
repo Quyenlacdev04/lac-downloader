@@ -385,37 +385,42 @@ document.addEventListener('DOMContentLoaded', () => {
     openPaymentModal();
   });
 
-  // VietQR Generation & Auto Polling Payment System
+  // VietQR Generation & Auto Polling Payment System (PayOS Style)
   const vietqrImg = document.getElementById('vietqrImg');
   const amountVal = document.getElementById('amountVal');
   const memoVal = document.getElementById('memoVal');
+  const noteAmountVal = document.getElementById('noteAmountVal');
+  const noteMemoVal = document.getElementById('noteMemoVal');
   const copyAmountBtn = document.getElementById('copyAmountBtn');
   const copyMemoBtn = document.getElementById('copyMemoBtn');
   const autoPollingText = document.getElementById('autoPollingText');
+  const cancelPaymentBtn = document.getElementById('cancelPaymentBtn');
 
   let paymentPollingInterval = null;
   let currentPaymentMemo = '';
 
   function openPaymentModal() {
     const planMap = {
-      '1m': { amount: 29000, priceStr: '29.000đ', title: 'Gói 1 Tháng (Tháng đầu)' },
-      '2m': { amount: 39000, priceStr: '39.000đ', title: 'Gói 2 Tháng' },
-      '3m': { amount: 59000, priceStr: '59.000đ', title: 'Gói 3 Tháng (Cao nhất)' }
+      '1m': { amount: 29000, priceStr: '29,000 vnđ', title: 'Gói 1 Tháng (Tháng đầu)' },
+      '2m': { amount: 39000, priceStr: '39,000 vnđ', title: 'Gói 2 Tháng' },
+      '3m': { amount: 59000, priceStr: '59,000 vnđ', title: 'Gói 3 Tháng (Cao nhất)' }
     };
 
     const info = planMap[selectedVipPlan] || planMap['3m'];
     const uname = (currentUser ? currentUser.username : 'GUEST').toUpperCase().replace(/[^A-Z0-9]/g, '');
     currentPaymentMemo = `NAP VIP${selectedVipPlan.toUpperCase()} ${uname}`;
 
-    paymentPlanInfo.textContent = `${info.title} - ${info.priceStr}`;
-    amountVal.textContent = info.priceStr;
-    memoVal.textContent = currentPaymentMemo;
+    if (paymentPlanInfo) paymentPlanInfo.textContent = `${info.title} - ${info.priceStr}`;
+    if (amountVal) amountVal.textContent = info.priceStr;
+    if (memoVal) memoVal.textContent = currentPaymentMemo;
+    if (noteAmountVal) noteAmountVal.textContent = info.priceStr.replace(' vnđ', '');
+    if (noteMemoVal) noteMemoVal.textContent = currentPaymentMemo;
 
     if (copyAmountBtn) copyAmountBtn.dataset.copy = info.amount.toString();
     if (copyMemoBtn) copyMemoBtn.dataset.copy = currentPaymentMemo;
 
     if (autoPollingText) {
-      autoPollingText.textContent = '🔄 Đang chờ hệ thống ngân hàng Techcombank ghi nhận biến động dư (Tự động nâng VIP)...';
+      autoPollingText.textContent = '🔄 Tự động kiểm tra chuyển khoản từ Techcombank...';
     }
 
     // Generate real Techcombank VietQR URL
@@ -467,15 +472,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 2500);
   }
 
-  // Copy buttons handler
-  document.querySelectorAll('.btn-copy').forEach(btn => {
+  // Copy buttons handler for both .btn-copy and .btn-payos-copy
+  document.querySelectorAll('.btn-copy, .btn-payos-copy').forEach(btn => {
     btn.addEventListener('click', () => {
       const textToCopy = btn.dataset.copy;
       if (textToCopy) {
         navigator.clipboard.writeText(textToCopy).then(() => {
           btn.classList.add('copied');
           const origHtml = btn.innerHTML;
-          btn.innerHTML = '<span style="font-size:0.7rem;font-weight:700">✓ Đã chép</span>';
+          btn.innerHTML = '✓ Đã chép';
           setTimeout(() => {
             btn.classList.remove('copied');
             btn.innerHTML = origHtml;
@@ -496,6 +501,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   paymentModalClose.addEventListener('click', closePaymentModal);
+  if (cancelPaymentBtn) cancelPaymentBtn.addEventListener('click', closePaymentModal);
 
   simulatePayBtn.addEventListener('click', async () => {
     if (!authToken) {
