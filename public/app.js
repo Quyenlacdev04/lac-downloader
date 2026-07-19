@@ -415,6 +415,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const autoPollingText = document.getElementById('autoPollingText');
   const cancelPaymentBtn = document.getElementById('cancelPaymentBtn');
 
+  // Global Payment State Variables
+  let paymentPollingInterval = null;
+  let currentPaymentMemo = '';
+  let currentOrderCode = null;
+
   // Elements for Payment Success View
   const payosBody = document.querySelector('.payos-body');
   const paymentSuccessBox = document.getElementById('paymentSuccessBox');
@@ -451,8 +456,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
-
-  let currentOrderCode = null;
 
   async function openPaymentModal() {
     resetPaymentModalViews();
