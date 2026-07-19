@@ -433,7 +433,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function openPaymentModal() {
+  let currentOrderCode = null;
+
+  async function openPaymentModal() {
     resetPaymentModalViews();
 
     const planMap = {
@@ -459,12 +461,32 @@ document.addEventListener('DOMContentLoaded', () => {
       autoPollingText.textContent = '🔄 Tự động kiểm tra chuyển khoản từ KienlongBank...';
     }
 
-    // Generate real KienlongBank (PayOS) VietQR URL
-    // Bank: KLB (KienlongBank), STK: 6909092005, Name: VU VAN QUYEN
+    // Default VietQR fallback image
     const bankId = 'KLB';
     const accountNo = '6909092005';
     const accountName = 'VU VAN QUYEN';
-    const qrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${info.amount}&addInfo=${encodeURIComponent(currentPaymentMemo)}&accountName=${encodeURIComponent(accountName)}`;
+    let qrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${info.amount}&addInfo=${encodeURIComponent(currentPaymentMemo)}&accountName=${encodeURIComponent(accountName)}`;
+
+    // Call server to create real PayOS order link
+    try {
+      const orderRes = await fetch('/api/payment/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+        },
+        body: JSON.stringify({ plan: selectedVipPlan })
+      });
+      const orderData = await orderRes.json();
+      if (orderData.success) {
+        currentOrderCode = orderData.orderCode;
+        if (orderData.qrCode) {
+          qrUrl = orderData.qrCode;
+        }
+      }
+    } catch (e) {
+      console.warn('PayOS order creation warning:', e);
+    }
 
     if (vietqrImg) {
       vietqrImg.src = qrUrl;
@@ -477,7 +499,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     paymentPollingInterval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/payment/check-status?memo=${encodeURIComponent(currentPaymentMemo)}`, {
+        const pollUrl = `/api/payment/check-status?memo=${encodeURIComponent(currentPaymentMemo)}` + (currentOrderCode ? `&orderCode=${currentOrderCode}` : '');
+        const res = await fetch(pollUrl, {
           headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
         });
         const data = await res.json();

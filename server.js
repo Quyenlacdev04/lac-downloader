@@ -328,6 +328,7 @@ app.post('/api/auth/avatar', (req, res) => {
 
 // Paid transactions store (memo -> transaction)
 const paidTransactions = new Map();
+const activePayOSOrders = new Map();
 
 function processAutoVipUpgrade(memo, amount) {
   if (!memo) return null;
@@ -378,11 +379,102 @@ function processAutoVipUpgrade(memo, amount) {
   return txData;
 }
 
+// API: Create Real PayOS Payment Order & Link
+app.post('/api/payment/create-order', async (req, res) => {
+  const user = getUserFromReq(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Vui lòng đăng nhập để nâng cấp VIP.' });
+  }
+
+  const { plan } = req.body; // '1m', '2m', '3m'
+  const planMap = {
+    '1m': { amount: 29000, title: 'VIP 1 Thang' },
+    '2m': { amount: 39000, title: 'VIP 2 Thang' },
+    '3m': { amount: 59000, title: 'VIP 3 Thang' }
+  };
+
+  const info = planMap[plan] || planMap['3m'];
+  const orderCode = Number(String(Date.now()).slice(-6));
+  const uname = user.username.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const description = `NAP VIP${(plan || '3m').toUpperCase()} ${uname}`.slice(0, 25);
+
+  const orderInfo = {
+    orderCode,
+    amount: info.amount,
+    description,
+    plan: plan || '3m',
+    userId: user.id,
+    username: user.username,
+    status: 'PENDING',
+    createdAt: new Date().toISOString()
+  };
+
+  activePayOSOrders.set(orderCode, orderInfo);
+
+  if (payOS) {
+    try {
+      const paymentData = {
+        orderCode: orderCode,
+        amount: info.amount,
+        description: description,
+        cancelUrl: `http://localhost:3000/`,
+        returnUrl: `http://localhost:3000/`
+      };
+
+      const paymentLinkRes = await payOS.createPaymentLink(paymentData);
+      console.log(`[PAYOS REAL LINK CREATED] OrderCode: ${orderCode}`);
+
+      return res.json({
+        success: true,
+        payOS: true,
+        orderCode,
+        amount: info.amount,
+        description,
+        qrCode: paymentLinkRes.qrCode,
+        checkoutUrl: paymentLinkRes.checkoutUrl
+      });
+    } catch (payOsErr) {
+      console.warn('[PAYOS REAL LINK WARN]', payOsErr.message);
+    }
+  }
+
+  res.json({
+    success: true,
+    payOS: false,
+    orderCode,
+    amount: info.amount,
+    description
+  });
+});
+
 // API: Check Automatic Payment Status (Auto Polling from Frontend)
-app.get('/api/payment/check-status', (req, res) => {
-  const { memo } = req.query;
+app.get('/api/payment/check-status', async (req, res) => {
+  const { memo, orderCode } = req.query;
   const user = getUserFromReq(req);
 
+  // 1. Direct PayOS API Check for real bank payment
+  if (payOS && orderCode) {
+    try {
+      const payOSInfo = await payOS.getPaymentLinkInformation(Number(orderCode));
+      if (payOSInfo && (payOSInfo.status === 'PAID' || payOSInfo.status === 'SUCCESS')) {
+        console.log(`[PAYOS REAL PAYMENT CONFIRMED DIRECTLY] OrderCode: ${orderCode} is PAID!`);
+        const targetUser = user || (activePayOSOrders.has(Number(orderCode)) ? activePayOSOrders.get(Number(orderCode)) : null);
+        if (targetUser) {
+          const result = processAutoVipUpgrade(memo || `VIP3M ${targetUser.username}`, payOSInfo.amount || 59000);
+          return res.json({
+            status: 'SUCCESS',
+            message: 'Giao dịch chuyển khoản ngân hàng đã được PayOS xác nhận tự động!',
+            transaction: result,
+            user: user ? sanitizeUser(user) : null
+          });
+        }
+      }
+    } catch (err) {
+      // Silently catch PayOS API polling errors
+    }
+  }
+
+  // 2. Local paid transactions store check
   if (memo && paidTransactions.has(memo.toString().toUpperCase())) {
     const tx = paidTransactions.get(memo.toString().toUpperCase());
     return res.json({
@@ -393,7 +485,7 @@ app.get('/api/payment/check-status', (req, res) => {
     });
   }
 
-  // Also check if user is already VIP
+  // 3. Check if user is already VIP
   if (user && user.vip) {
     return res.json({
       status: 'SUCCESS',
