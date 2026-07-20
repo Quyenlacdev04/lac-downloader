@@ -391,13 +391,20 @@ document.addEventListener('DOMContentLoaded', () => {
   // ---- Functions ----
 
   function isValidSoundCloudUrl(url) {
+    if (!url || typeof url !== 'string') return false;
+    let u = url.trim();
+    if (!u) return false;
+    if (!/^https?:\/\//i.test(u)) {
+      u = 'https://' + u;
+    }
     try {
-      const parsed = new URL(url);
+      const parsed = new URL(u);
+      const host = parsed.hostname.toLowerCase();
       return (
-        parsed.hostname === 'soundcloud.com' ||
-        parsed.hostname === 'www.soundcloud.com' ||
-        parsed.hostname === 'm.soundcloud.com' ||
-        parsed.hostname === 'on.soundcloud.com'
+        host === 'soundcloud.com' ||
+        host.endsWith('.soundcloud.com') ||
+        host === 'snd.sc' ||
+        host.includes('soundcloud')
       );
     } catch {
       return false;

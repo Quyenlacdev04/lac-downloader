@@ -599,25 +599,76 @@ app.post('/api/auth/subscribe', (req, res) => {
   });
 });
 
-// Validate SoundCloud URL
-function isValidSoundCloudUrl(url) {
-  try {
-    const parsed = new URL(url);
-    return (
-      parsed.hostname === 'soundcloud.com' ||
-      parsed.hostname === 'www.soundcloud.com' ||
-      parsed.hostname === 'm.soundcloud.com' ||
-      parsed.hostname === 'on.soundcloud.com'
-    );
-  } catch {
-    return false;
+// Normalize & Validate SoundCloud URL
+function normalizeSoundCloudUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return null;
+  let u = rawUrl.trim();
+  if (!u) return null;
+  if (!/^https?:\/\//i.test(u)) {
+    u = 'https://' + u;
   }
+  try {
+    const parsed = new URL(u);
+    const host = parsed.hostname.toLowerCase();
+    if (
+      host === 'soundcloud.com' ||
+      host.endsWith('.soundcloud.com') ||
+      host === 'snd.sc' ||
+      host.includes('soundcloud')
+    ) {
+      return parsed.href;
+    }
+  } catch {}
+  return null;
+}
+
+function isValidSoundCloudUrl(url) {
+  return normalizeSoundCloudUrl(url) !== null;
+}
+
+// Helper: parse JSON safely from yt-dlp stdout
+function parseYtDlpJson(output) {
+  if (!output) throw new Error('Output rỗng từ yt-dlp.');
+  const lines = output.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (lines[i].startsWith('{') && lines[i].endsWith('}')) {
+      try {
+        return JSON.parse(lines[i]);
+      } catch {}
+    }
+  }
+  return JSON.parse(output);
+}
+
+// Helper: OEmbed Fallback from SoundCloud API
+async function fetchOembedInfo(targetUrl) {
+  try {
+    const oembedUrl = `https://soundcloud.com/oembed?url=${encodeURIComponent(targetUrl)}&format=json`;
+    const response = await fetch(oembedUrl);
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        title: data.title || 'SoundCloud Track',
+        artist: data.author_name || 'SoundCloud Artist',
+        duration: 0,
+        thumbnail: data.thumbnail_url || '',
+        description: '',
+        genre: 'SoundCloud',
+        upload_date: '',
+        view_count: 0,
+        like_count: 0,
+        format: { ext: 'mp3', abr: 320, acodec: 'MP3', filesize: null }
+      };
+    }
+  } catch (err) {
+    console.warn('[OEMBED FALLBACK WARN]', err.message);
+  }
+  return null;
 }
 
 // Helper: run yt-dlp command
 function runYtDlp(args) {
   return new Promise((resolve, reject) => {
-    // Use execFile for safety and proper argument handling
     execFile(YTDLP_PATH, args, { maxBuffer: 10 * 1024 * 1024, timeout: 120000 }, (error, stdout, stderr) => {
       if (error) {
         console.error('yt-dlp error:', stderr || error.message);
@@ -633,53 +684,68 @@ function runYtDlp(args) {
 app.post('/api/info', async (req, res) => {
   try {
     const { url } = req.body;
+    const cleanUrl = normalizeSoundCloudUrl(url);
 
-    if (!url || !isValidSoundCloudUrl(url)) {
+    if (!cleanUrl) {
       return res.status(400).json({
-        error: 'URL không hợp lệ. Vui lòng nhập link SoundCloud đúng định dạng.'
+        error: 'URL không hợp lệ. Vui lòng nhập link SoundCloud đúng định dạng (ví dụ: soundcloud.com/artist/track).'
       });
     }
 
-    console.log(`[INFO] Fetching info for: ${url}`);
+    console.log(`[INFO] Fetching info for: ${cleanUrl}`);
 
-    const output = await runYtDlp([
-      '--dump-json',
-      '--no-warnings',
-      url
-    ]);
+    let trackInfo = null;
 
-    const info = JSON.parse(output);
+    // 1. Try yt-dlp dump-json
+    try {
+      const output = await runYtDlp([
+        '--dump-json',
+        '--no-warnings',
+        '--no-playlist',
+        cleanUrl
+      ]);
 
-    // Find best audio format
-    const formats = info.formats || [];
-    let bestFormat = null;
-    let bestBitrate = 0;
+      const info = parseYtDlpJson(output);
+      const formats = info.formats || [];
+      let bestFormat = null;
+      let bestBitrate = 0;
 
-    for (const fmt of formats) {
-      const abr = fmt.abr || fmt.tbr || 0;
-      if (abr > bestBitrate) {
-        bestBitrate = abr;
-        bestFormat = fmt;
+      for (const fmt of formats) {
+        const abr = fmt.abr || fmt.tbr || 0;
+        if (abr > bestBitrate) {
+          bestBitrate = abr;
+          bestFormat = fmt;
+        }
       }
+
+      trackInfo = {
+        title: info.title || 'Unknown',
+        artist: info.uploader || info.artist || 'Unknown',
+        duration: info.duration || 0,
+        thumbnail: info.thumbnail || '',
+        description: info.description ? info.description.substring(0, 200) : '',
+        genre: info.genre || '',
+        upload_date: info.upload_date || '',
+        view_count: info.view_count || 0,
+        like_count: info.like_count || 0,
+        format: bestFormat ? {
+          ext: bestFormat.ext || 'mp3',
+          abr: bestBitrate,
+          acodec: bestFormat.acodec || 'unknown',
+          filesize: bestFormat.filesize || bestFormat.filesize_approx || null
+        } : { ext: 'mp3', abr: 128, acodec: 'mp3', filesize: null }
+      };
+    } catch (ytErr) {
+      console.warn('[INFO] yt-dlp info fetch failed, trying OEmbed fallback:', ytErr.message);
+      // 2. Fallback to SoundCloud OEmbed API
+      trackInfo = await fetchOembedInfo(cleanUrl);
     }
 
-    const trackInfo = {
-      title: info.title || 'Unknown',
-      artist: info.uploader || info.artist || 'Unknown',
-      duration: info.duration || 0,
-      thumbnail: info.thumbnail || '',
-      description: info.description ? info.description.substring(0, 200) : '',
-      genre: info.genre || '',
-      upload_date: info.upload_date || '',
-      view_count: info.view_count || 0,
-      like_count: info.like_count || 0,
-      format: bestFormat ? {
-        ext: bestFormat.ext || 'mp3',
-        abr: bestBitrate,
-        acodec: bestFormat.acodec || 'unknown',
-        filesize: bestFormat.filesize || bestFormat.filesize_approx || null
-      } : { ext: 'mp3', abr: 128, acodec: 'mp3', filesize: null }
-    };
+    if (!trackInfo) {
+      return res.status(400).json({
+        error: 'Không thể lấy thông tin bài hát. Vui lòng kiểm tra lại link SoundCloud có đúng hoặc có công khai không.'
+      });
+    }
 
     console.log(`[INFO] Track found: ${trackInfo.title} - ${trackInfo.artist}`);
     res.json(trackInfo);
@@ -712,24 +778,29 @@ setInterval(() => {
 app.post('/api/prepare', async (req, res) => {
   try {
     const { url, format } = req.body;
+    const cleanUrl = normalizeSoundCloudUrl(url);
 
-    if (!url || !isValidSoundCloudUrl(url)) {
+    if (!cleanUrl) {
       return res.status(400).json({
-        error: 'URL không hợp lệ.'
+        error: 'URL không hợp lệ. Vui lòng nhập link SoundCloud đúng định dạng.'
       });
     }
 
-    console.log(`[PREPARE] Starting download for: ${url} (format: ${format || 'original'})`);
+    console.log(`[PREPARE] Starting download for: ${cleanUrl} (format: ${format || 'original'})`);
 
     // Get track info for filename
     let title = 'soundcloud_track';
     try {
-      const infoOutput = await runYtDlp(['--dump-json', '--no-warnings', url]);
-      const info = JSON.parse(infoOutput);
+      const infoOutput = await runYtDlp(['--dump-json', '--no-warnings', '--no-playlist', cleanUrl]);
+      const info = parseYtDlpJson(infoOutput);
       title = `${info.uploader || 'Unknown'} - ${info.title || 'Unknown'}`;
       title = title.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
     } catch (e) {
-      console.warn('[PREPARE] Could not get track title, using default');
+      console.warn('[PREPARE] Could not get track title via yt-dlp, trying OEmbed fallback');
+      const oembedData = await fetchOembedInfo(cleanUrl);
+      if (oembedData) {
+        title = `${oembedData.artist} - ${oembedData.title}`.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
+      }
     }
 
     // Create temp directory for download
@@ -759,7 +830,7 @@ app.post('/api/prepare', async (req, res) => {
       downloadArgs.push('-f', 'bestaudio/best');
     }
 
-    downloadArgs.push('-o', outputTemplate, url);
+    downloadArgs.push('-o', outputTemplate, cleanUrl);
 
     await runYtDlp(downloadArgs);
 
