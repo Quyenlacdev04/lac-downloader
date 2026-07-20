@@ -820,7 +820,9 @@ app.post('/api/prepare', async (req, res) => {
 
     const outputTemplate = path.join(tmpDir, '%(title)s.%(ext)s');
 
-    // Build yt-dlp download arguments based on requested format
+    const isYouTube = /youtube\.com|youtu\.be/i.test(cleanUrl);
+
+    // Build primary download arguments based on format and platform
     const downloadArgs = [
       '--no-warnings',
       '--no-playlist'
@@ -834,25 +836,41 @@ app.post('/api/prepare', async (req, res) => {
       downloadArgs.push('-f', 'bestaudio/best', '-x', '--audio-format', 'mp3', '--audio-quality', '0');
     } else if (format === 'wav') {
       downloadArgs.push('-f', 'bestaudio/best', '-x', '--audio-format', 'wav');
-    } else if (format === 'mp4_1080') {
-      downloadArgs.push('-f', 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best', '--recode-video', 'mp4');
-    } else if (format === 'mp4_720') {
-      downloadArgs.push('-f', 'bestvideo[height<=720]+bestaudio/best[height<=720]/bestvideo+bestaudio/best', '--recode-video', 'mp4');
-    } else if (format === 'mp4') {
-      downloadArgs.push('-f', 'bestvideo+bestaudio/best', '--recode-video', 'mp4');
+    } else if (isYouTube && format === 'mp4_1080') {
+      downloadArgs.push('-f', 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/best');
+    } else if (isYouTube && format === 'mp4_720') {
+      downloadArgs.push('-f', 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/bestvideo+bestaudio/best');
+    } else if (isYouTube && format === 'mp4') {
+      downloadArgs.push('-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best');
     } else {
-      // Original quality
-      downloadArgs.push('-f', 'bestvideo+bestaudio/bestaudio/best');
+      // Default / Original / Audio-only (e.g. SoundCloud)
+      downloadArgs.push('-f', 'bestaudio/best/bestvideo+bestaudio/best');
     }
 
     downloadArgs.push('-o', outputTemplate, cleanUrl);
 
-    await runYtDlp(downloadArgs);
+    try {
+      await runYtDlp(downloadArgs);
+    } catch (primaryErr) {
+      console.warn('[PREPARE] Primary download failed, running resilient fallback:', primaryErr.message);
+      // Fallback: simple best format download without strict conversion flags
+      const fallbackArgs = [
+        '--no-warnings',
+        '--no-playlist',
+        '-f', 'bestaudio/best/bestvideo+bestaudio/best',
+        '-o', outputTemplate,
+        cleanUrl
+      ];
+      if (FFMPEG_PATH && FFMPEG_PATH !== 'ffmpeg') {
+        fallbackArgs.unshift('--ffmpeg-location', FFMPEG_PATH);
+      }
+      await runYtDlp(fallbackArgs);
+    }
 
     // Find the downloaded file
     const files = fs.readdirSync(tmpDir);
     if (files.length === 0) {
-      throw new Error('Download failed - no file created');
+      throw new Error('Không có tệp nào được tạo sau khi tải.');
     }
 
     const downloadedFile = path.join(tmpDir, files[0]);
@@ -884,7 +902,7 @@ app.post('/api/prepare', async (req, res) => {
   } catch (error) {
     console.error('[ERROR] Prepare failed:', error.message);
     res.status(500).json({
-      error: 'Không thể tải bài hát. Vui lòng thử lại.'
+      error: `Không thể tải bài hát/video: ${error.message || 'Lỗi xử lý file'}. Vui lòng thử lại với định dạng Gốc hoặc MP3.`
     });
   }
 });
