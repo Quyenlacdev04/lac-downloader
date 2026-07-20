@@ -2654,12 +2654,12 @@ body {
   }
 }
 
-/* Splash Screen (3-Second Logo Animation) */
+/* Splash Screen (3-Second Logo Animation with Rotating Ring) */
 .splash-screen {
   position: fixed;
   inset: 0;
   z-index: 999999;
-  background: radial-gradient(circle at center, #181028 0%, #0a0612 100%);
+  background: radial-gradient(circle at center, #181028 0%, #080410 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2677,7 +2677,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 24px;
   animation: splashScaleUp 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
@@ -2686,71 +2686,63 @@ body {
   100% { transform: scale(1); opacity: 1; }
 }
 
-.splash-logo-wrapper {
+.splash-logo-container {
   position: relative;
-  width: 120px;
-  height: 120px;
+  width: 220px;
+  height: 220px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 8px;
+  padding: 12px;
+}
+
+/* Glowing Rotating Neon Ring Spinner */
+.splash-spinner-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 40px;
+  background: conic-gradient(from 0deg, #ff6a00, #ee0979, #ff007f, #00e676, #ff6a00);
+  animation: splashRotateRing 2.2s linear infinite;
+  box-shadow: 0 0 30px rgba(255, 106, 0, 0.5), 0 0 50px rgba(238, 9, 121, 0.4);
+}
+
+.splash-spinner-ring::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  background: #0d081a;
+  border-radius: 35px;
+}
+
+@keyframes splashRotateRing {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .splash-logo {
-  width: 90px;
-  height: 90px;
-  object-fit: contain;
+  position: relative;
   z-index: 2;
-  filter: drop-shadow(0 0 25px rgba(255, 106, 0, 0.6));
-  animation: splashFloat 2.5s ease-in-out infinite alternate;
+  width: 190px;
+  height: 190px;
+  object-fit: cover;
+  border-radius: 30px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  animation: splashLogoPulse 2s ease-in-out infinite alternate;
 }
 
-@keyframes splashFloat {
-  0% { transform: translateY(0px) rotate(0deg); }
-  100% { transform: translateY(-8px) rotate(3deg); }
-}
-
-.splash-pulse {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 106, 0, 0.35) 0%, transparent 70%);
-  animation: splashPulse 2s ease-in-out infinite;
-  z-index: 1;
-}
-
-@keyframes splashPulse {
-  0% { transform: scale(0.9); opacity: 0.5; }
-  50% { transform: scale(1.3); opacity: 0.9; }
-  100% { transform: scale(0.9); opacity: 0.5; }
-}
-
-.splash-title {
-  font-size: 2.2rem;
-  font-weight: 900;
-  letter-spacing: 2px;
-  background: linear-gradient(135deg, #ff6a00 0%, #ee0979 50%, #ff007f 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin: 0;
-}
-
-.splash-subtitle {
-  font-size: 0.95rem;
-  color: rgba(255, 255, 255, 0.7);
-  font-weight: 500;
-  margin: 0;
+@keyframes splashLogoPulse {
+  0% { transform: scale(0.98); }
+  100% { transform: scale(1.02); }
 }
 
 .splash-loader-bar {
-  width: 220px;
+  width: 240px;
   height: 6px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 10px;
   overflow: hidden;
-  margin-top: 12px;
   position: relative;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .splash-loader-progress {
@@ -2763,7 +2755,7 @@ body {
 
 @keyframes splashProgress {
   0% { width: 0%; }
-  50% { width: 65%; }
+  50% { width: 70%; }
   100% { width: 100%; }
 }
 
