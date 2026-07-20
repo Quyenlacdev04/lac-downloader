@@ -16,11 +16,6 @@ let YTDLP_PATH = (() => {
   const isWin = os.platform() === 'win32';
   const binName = isWin ? 'yt-dlp.exe' : 'yt-dlp';
 
-  try {
-    const ytDlpExecPath = path.join(__dirname, 'node_modules', 'yt-dlp-exec', 'bin', binName);
-    if (fs.existsSync(ytDlpExecPath)) return ytDlpExecPath;
-  } catch {}
-
   const localBinPath = path.join(__dirname, 'bin', binName);
   if (fs.existsSync(localBinPath)) return localBinPath;
 
