@@ -4,17 +4,6 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
-  // 3-Second Logo Splash Screen Handler
-  const splashScreen = document.getElementById('splashScreen');
-  if (splashScreen) {
-    setTimeout(() => {
-      splashScreen.classList.add('fade-out');
-      setTimeout(() => {
-        splashScreen.style.display = 'none';
-      }, 600);
-    }, 3000);
-  }
-
   // Main Elements
   const urlInput = document.getElementById('urlInput');
   const clearBtn = document.getElementById('clearBtn');
