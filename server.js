@@ -9,23 +9,96 @@ const { PayOS } = require('@payos/node');
 const app = express();
 const PORT = 3000;
 
-// Resolve yt-dlp path
-const YTDLP_PATH = (() => {
-  // Try common locations
+const https = require('https');
+
+// Resolve yt-dlp path (resilient across Windows & Render Linux)
+let YTDLP_PATH = (() => {
+  const isWin = os.platform() === 'win32';
+  const binName = isWin ? 'yt-dlp.exe' : 'yt-dlp';
+
+  try {
+    const ytDlpExecPath = path.join(__dirname, 'node_modules', 'yt-dlp-exec', 'bin', binName);
+    if (fs.existsSync(ytDlpExecPath)) return ytDlpExecPath;
+  } catch {}
+
+  const localBinPath = path.join(__dirname, 'bin', binName);
+  if (fs.existsSync(localBinPath)) return localBinPath;
+
   const candidates = [
     path.join(os.homedir(), 'AppData', 'Roaming', 'Python', 'Python314', 'Scripts', 'yt-dlp.exe'),
     path.join(os.homedir(), 'AppData', 'Roaming', 'Python', 'Python313', 'Scripts', 'yt-dlp.exe'),
     path.join(os.homedir(), 'AppData', 'Roaming', 'Python', 'Python312', 'Scripts', 'yt-dlp.exe'),
     path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Python', 'Python314', 'Scripts', 'yt-dlp.exe'),
     path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Python', 'Python313', 'Scripts', 'yt-dlp.exe'),
-    'yt-dlp', // fallback to PATH
   ];
   for (const p of candidates) {
-    if (p === 'yt-dlp') return p;
     try { if (fs.existsSync(p)) return p; } catch {}
   }
   return 'yt-dlp';
 })();
+
+function downloadFileWithRedirects(url, destPath) {
+  return new Promise((resolve, reject) => {
+    https.get(url, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return downloadFileWithRedirects(res.headers.location, destPath).then(resolve).catch(reject);
+      }
+      if (res.statusCode !== 200) {
+        return reject(new Error(`HTTP status ${res.statusCode}`));
+      }
+      const fileStream = fs.createWriteStream(destPath);
+      res.pipe(fileStream);
+      fileStream.on('finish', () => {
+        fileStream.close(resolve);
+      });
+      fileStream.on('error', (err) => {
+        fs.unlink(destPath, () => reject(err));
+      });
+    }).on('error', reject);
+  });
+}
+
+// Auto-bootstrap yt-dlp binary if missing on cloud server
+async function ensureYtDlpBinary() {
+  const isWin = os.platform() === 'win32';
+  const binName = isWin ? 'yt-dlp.exe' : 'yt-dlp';
+
+  if (YTDLP_PATH !== 'yt-dlp' && fs.existsSync(YTDLP_PATH)) {
+    return YTDLP_PATH;
+  }
+
+  const binDir = path.join(__dirname, 'bin');
+  if (!fs.existsSync(binDir)) {
+    fs.mkdirSync(binDir, { recursive: true });
+  }
+
+  const targetPath = path.join(binDir, binName);
+  if (fs.existsSync(targetPath)) {
+    YTDLP_PATH = targetPath;
+    return YTDLP_PATH;
+  }
+
+  const downloadUrl = isWin
+    ? 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe'
+    : 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp';
+
+  console.log(`[BOOTSTRAP] Auto-downloading yt-dlp binary from ${downloadUrl}...`);
+
+  try {
+    await downloadFileWithRedirects(downloadUrl, targetPath);
+    if (!isWin) {
+      try { fs.chmodSync(targetPath, '755'); } catch {}
+    }
+    YTDLP_PATH = targetPath;
+    console.log(`[BOOTSTRAP] yt-dlp binary ready at: ${YTDLP_PATH}`);
+  } catch (err) {
+    console.error('[BOOTSTRAP ERROR] Download failed:', err.message);
+  }
+
+  return YTDLP_PATH;
+}
+
+ensureYtDlpBinary();
 
 console.log(`[CONFIG] yt-dlp path: ${YTDLP_PATH}`);
 
@@ -675,9 +748,10 @@ async function fetchOembedInfo(targetUrl) {
 }
 
 // Helper: run yt-dlp command
-function runYtDlp(args) {
+async function runYtDlp(args) {
+  const binaryPath = await ensureYtDlpBinary();
   return new Promise((resolve, reject) => {
-    execFile(YTDLP_PATH, args, { maxBuffer: 10 * 1024 * 1024, timeout: 180000 }, (error, stdout, stderr) => {
+    execFile(binaryPath, args, { maxBuffer: 10 * 1024 * 1024, timeout: 180000 }, (error, stdout, stderr) => {
       if (error) {
         console.error('yt-dlp error:', stderr || error.message);
         reject(new Error(stderr || error.message));
