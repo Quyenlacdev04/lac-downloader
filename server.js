@@ -1097,11 +1097,13 @@ app.post('/api/prepare', async (req, res) => {
     const targetFilePath = path.join(tmpDir, `media${extForFormat}`);
     const outputTemplate = path.join(tmpDir, 'download.%(ext)s');
 
-    // Build multi-threaded high-speed download arguments
+    // Build multi-threaded ultra-high-speed download arguments
     const downloadArgs = [
       '--no-warnings',
       '--no-playlist',
-      '--concurrent-fragments', '8',
+      '--concurrent-fragments', '16',
+      '-N', '16',
+      '--buffer-size', '64k',
       '--no-mtime',
       '--no-part'
     ];
@@ -1115,15 +1117,15 @@ app.post('/api/prepare', async (req, res) => {
     }
 
     if (format === 'mp3') {
-      downloadArgs.push('-f', 'bestaudio/best', '-x', '--audio-format', 'mp3', '--audio-quality', '0');
+      downloadArgs.push('-f', 'bestaudio/best', '-x', '--audio-format', 'mp3', '--audio-quality', '5');
     } else if (format === 'wav') {
       downloadArgs.push('-f', 'bestaudio/best', '-x', '--audio-format', 'wav');
     } else if (isYouTube && format === 'mp4_1080') {
-      downloadArgs.push('-f', 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/best');
+      downloadArgs.push('-f', 'b[height<=1080][ext=mp4]/bestvideo[height<=1080]+bestaudio/best');
     } else if (isYouTube && format === 'mp4_720') {
-      downloadArgs.push('-f', 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/bestvideo+bestaudio/best');
+      downloadArgs.push('-f', 'b[height<=720][ext=mp4]/bestvideo[height<=720]+bestaudio/best');
     } else if (isYouTube && format === 'mp4') {
-      downloadArgs.push('-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best');
+      downloadArgs.push('-f', 'b[ext=mp4]/bestvideo+bestaudio/best');
     } else {
       // Default / Original / Audio-only (e.g. SoundCloud)
       downloadArgs.push('-f', 'bestaudio/best/bestvideo+bestaudio/best');
