@@ -49,32 +49,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const regError = document.getElementById('regError');
   const quickDemoBtn = document.getElementById('quickDemoBtn');
 
-  // VIP Modal Elements
-  const vipModal = document.getElementById('vipModal');
-  const vipModalClose = document.getElementById('vipModalClose');
-  const planCards = document.querySelectorAll('.plan-card');
-  const confirmVipBtn = document.getElementById('confirmVipBtn');
-
-  // Payment Modal Elements
-  const paymentModal = document.getElementById('paymentModal');
-  const paymentModalClose = document.getElementById('paymentModalClose');
-  const paymentPlanInfo = document.getElementById('paymentPlanInfo');
-  const simulatePayBtn = document.getElementById('simulatePayBtn');
-
   // State Variables
   let currentUrl = '';
   let currentTrackInfo = null;
   let selectedFormat = 'original';
   let currentUser = null;
   let authToken = localStorage.getItem('sc_auth_token') || null;
-  let selectedVipPlan = '3m'; // Default selected package: 3 months (59k)
-  let pendingDownloadAfterVip = false;
-
-  const planPriceMap = {
-    '1m': { price: '29.000đ', title: 'Gói 1 Tháng (Tháng đầu)' },
-    '2m': { price: '39.000đ', title: 'Gói 2 Tháng' },
-    '3m': { price: '59.000đ', title: 'Gói 3 Tháng (Cao nhất)' }
-  };
 
   // Format selection buttons
   const formatBtns = document.querySelectorAll('.format-btn');
@@ -144,15 +124,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       userName.textContent = currentUser.name || currentUser.username;
 
-      if (currentUser.vip) {
-        const planTextMap = { '1m': 'VIP 1T', '2m': 'VIP 2T', '3m': 'VIP 3T' };
-        const badgeText = planTextMap[currentUser.vipPlan] || 'VIP';
-        userBadge.textContent = badgeText;
+      if (userBadge) {
+        userBadge.textContent = 'THÀNH VIÊN';
         userBadge.className = 'user-badge badge-vip';
-      } else {
-        const freeLeft = currentUser.remainingFree !== undefined ? currentUser.remainingFree : (2 - (currentUser.freeDownloadsToday || 0));
-        userBadge.textContent = `🎁 Còn ${Math.max(0, freeLeft)}/2 lượt hôm nay`;
-        userBadge.className = 'user-badge badge-free';
       }
     } else {
       userGuest.classList.remove('hidden');
@@ -160,26 +134,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Click on Avatar or User Info -> Open VIP Subscription Modal!
-  if (userAvatar) {
-    userAvatar.addEventListener('click', (e) => {
-      e.stopPropagation();
-      openVipModal();
-    });
-  }
-
-  if (userInfoClickArea) {
-    userInfoClickArea.addEventListener('click', () => {
-      openVipModal();
-    });
-  }
-
-  // Change Avatar Image Handler
-  if (changeAvatarBtn && avatarFileInput) {
-    changeAvatarBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      avatarFileInput.click();
-    });
+  // Avatar & Profile click -> Change Avatar
+  if (avatarFileInput) {
+    if (userAvatar) {
+      userAvatar.addEventListener('click', (e) => {
+        e.stopPropagation();
+        avatarFileInput.click();
+      });
+    }
+    if (userInfoClickArea) {
+      userInfoClickArea.addEventListener('click', () => {
+        avatarFileInput.click();
+      });
+    }
+    if (changeAvatarBtn) {
+      changeAvatarBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        avatarFileInput.click();
+      });
+    }
 
     avatarFileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
@@ -358,180 +331,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   }
 
-  // ---- VIP Modal & Subscription Logic ----
-  function openVipModal() {
-    vipModal.classList.remove('hidden');
-    updateVipCheckoutBtn();
-  }
-
-  function closeVipModal() {
-    vipModal.classList.add('hidden');
-  }
-
-  function updateVipCheckoutBtn() {
-    const info = planPriceMap[selectedVipPlan] || planPriceMap['3m'];
-    confirmVipBtn.querySelector('span').textContent = `Kích Hoạt VIP Ngay (${info.price})`;
-  }
-
-  planCards.forEach(card => {
-    card.addEventListener('click', () => {
-      planCards.forEach(c => c.classList.remove('active'));
-      card.classList.add('active');
-      selectedVipPlan = card.dataset.plan || '3m';
-      updateVipCheckoutBtn();
-    });
-  });
-
-  vipModalClose.addEventListener('click', closeVipModal);
-
-  confirmVipBtn.addEventListener('click', () => {
-    closeVipModal();
-    openPaymentModal();
-  });
-
-  // VietQR Generation & Auto Polling Payment System (PayOS Style)
-  const vietqrImg = document.getElementById('vietqrImg');
-  const amountVal = document.getElementById('amountVal');
-  const memoVal = document.getElementById('memoVal');
-  const noteAmountVal = document.getElementById('noteAmountVal');
-  const noteMemoVal = document.getElementById('noteMemoVal');
-  const copyAmountBtn = document.getElementById('copyAmountBtn');
-  const copyMemoBtn = document.getElementById('copyMemoBtn');
-  const autoPollingText = document.getElementById('autoPollingText');
-  const cancelPaymentBtn = document.getElementById('cancelPaymentBtn');
-
-  // Global Payment State Variables
-  let paymentPollingInterval = null;
-  let currentPaymentMemo = '';
-  let currentOrderCode = null;
-
-  // Elements for Payment Success View
-  const payosBody = document.querySelector('.payos-body');
-  const paymentSuccessBox = document.getElementById('paymentSuccessBox');
-  const finishPaymentBtn = document.getElementById('finishPaymentBtn');
-  const successTxId = document.getElementById('successTxId');
-  const successPlanName = document.getElementById('successPlanName');
-  const successAmount = document.getElementById('successAmount');
-
-  function showPaymentSuccessView(info) {
-    if (paymentPollingInterval) {
-      clearInterval(paymentPollingInterval);
-      paymentPollingInterval = null;
-    }
-
-    if (payosBody) payosBody.classList.add('hidden');
-    if (paymentSuccessBox) paymentSuccessBox.classList.remove('hidden');
-
-    const randId = 'KLB-' + Math.floor(100000 + Math.random() * 900000);
-    if (successTxId) successTxId.textContent = randId;
-    if (successPlanName) successPlanName.textContent = info ? info.title : 'Gói VIP';
-    if (successAmount) successAmount.textContent = info ? info.priceStr : '59,000 vnđ';
-  }
-
-  function resetPaymentModalViews() {
-    if (payosBody) payosBody.classList.remove('hidden');
-    if (paymentSuccessBox) paymentSuccessBox.classList.add('hidden');
-  }
-
-  if (finishPaymentBtn) {
-    finishPaymentBtn.addEventListener('click', () => {
-      closePaymentModal();
-      if (currentUrl) {
-        executeTrackDownload();
-      }
-    });
-  }
-
-  function openPaymentModal() {
-    resetPaymentModalViews();
-
-    const planMap = {
-      '1m': { amount: 29000, priceStr: '29,000 vnđ', title: 'VIP 1 Tháng' },
-      '2m': { amount: 39000, priceStr: '39,000 vnđ', title: 'VIP 2 Tháng' },
-      '3m': { amount: 59000, priceStr: '59,000 vnđ', title: 'VIP 3 Tháng' }
-    };
-
-    const info = planMap[selectedVipPlan] || planMap['3m'];
-    const uname = (currentUser ? currentUser.username : 'GUEST').toUpperCase().replace(/[^A-Z0-9]/g, '');
-    currentPaymentMemo = `NAP VIP${selectedVipPlan.toUpperCase()} ${uname}`;
-
-    if (paymentPlanInfo) paymentPlanInfo.textContent = `${info.title} - ${info.priceStr}`;
-    if (amountVal) amountVal.textContent = info.priceStr;
-    if (memoVal) memoVal.textContent = currentPaymentMemo;
-    if (noteAmountVal) noteAmountVal.textContent = info.priceStr.replace(' vnđ', '');
-    if (noteMemoVal) noteMemoVal.textContent = currentPaymentMemo;
-
-    if (copyAmountBtn) copyAmountBtn.dataset.copy = info.amount.toString();
-    if (copyMemoBtn) copyMemoBtn.dataset.copy = currentPaymentMemo;
-
-    if (autoPollingText) {
-      autoPollingText.textContent = '🔄 Tự động kiểm tra chuyển khoản từ KienlongBank...';
-    }
-
-    // Default VietQR image (hiển thị ngay lập tức)
-    const bankId = 'KLB';
-    const accountNo = '6909092005';
-    const accountName = 'VU VAN QUYEN';
-    const defaultQrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${info.amount}&addInfo=${encodeURIComponent(currentPaymentMemo)}&accountName=${encodeURIComponent(accountName)}`;
-
-    if (vietqrImg) {
-      vietqrImg.src = defaultQrUrl;
-    }
-
-    // *** HIỂN THỊ MODAL NGAY LẬP TỨC - KHÔNG CHỜ API ***
-    paymentModal.classList.remove('hidden');
-
-    // Gọi PayOS API trong nền (không chặn giao diện)
-    (async () => {
-      try {
-        const orderRes = await fetch('/api/payment/create-order', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
-          },
-          body: JSON.stringify({ plan: selectedVipPlan })
-        });
-        const orderData = await orderRes.json();
-        if (orderData.success) {
-          currentOrderCode = orderData.orderCode;
-          if (orderData.qrCode && vietqrImg) {
-            vietqrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(orderData.qrCode)}`;
-          }
-        }
-      } catch (e) {
-        console.warn('PayOS order creation warning:', e);
-      }
-    })();
-
-    // Start 24/7 Automatic Bank Transfer Status Polling (Every 3 seconds)
-    if (paymentPollingInterval) clearInterval(paymentPollingInterval);
-
-    paymentPollingInterval = setInterval(async () => {
-      try {
-        const pollUrl = `/api/payment/check-status?memo=${encodeURIComponent(currentPaymentMemo)}` + (currentOrderCode ? `&orderCode=${currentOrderCode}` : '');
-        const res = await fetch(pollUrl, {
-          headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
-        });
-        const data = await res.json();
-
-        if (data.status === 'SUCCESS') {
-          if (data.user) {
-            currentUser = data.user;
-            localStorage.setItem('sc_user_data', JSON.stringify(currentUser));
-            updateUserUI();
-          }
-
-          showPaymentSuccessView(info);
-        }
-      } catch (err) {
-        console.warn('Auto polling check warning:', err);
-      }
-    }, 3000);
-  }
-
-  // Copy buttons handler for both .btn-copy and .btn-payos-copy
-  document.querySelectorAll('.btn-copy, .btn-payos-copy').forEach(btn => {
+  // ---- Copy Text Helper ----
+  document.querySelectorAll('.btn-copy').forEach(btn => {
     btn.addEventListener('click', () => {
       const textToCopy = btn.dataset.copy;
       if (textToCopy) {
@@ -548,52 +349,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
     });
-  });
-
-  function closePaymentModal() {
-    if (paymentPollingInterval) {
-      clearInterval(paymentPollingInterval);
-      paymentPollingInterval = null;
-    }
-    paymentModal.classList.add('hidden');
-    resetPaymentModalViews();
-  }
-
-  paymentModalClose.addEventListener('click', closePaymentModal);
-  if (cancelPaymentBtn) cancelPaymentBtn.addEventListener('click', closePaymentModal);
-
-  simulatePayBtn.addEventListener('click', async () => {
-    try {
-      simulatePayBtn.disabled = true;
-      const res = await fetch('/api/payment/simulate-auto-paid', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
-        },
-        body: JSON.stringify({ memo: currentPaymentMemo, orderCode: currentOrderCode })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Nâng cấp thất bại.');
-
-      if (data.user) {
-        currentUser = data.user;
-        updateUserUI();
-      }
-
-      const planMap = {
-        '1m': { amount: 29000, priceStr: '29,000 vnđ', title: 'VIP 1 Tháng' },
-        '2m': { amount: 39000, priceStr: '39,000 vnđ', title: 'VIP 2 Tháng' },
-        '3m': { amount: 59000, priceStr: '59,000 vnđ', title: 'VIP 3 Tháng' }
-      };
-      const info = planMap[selectedVipPlan] || planMap['3m'];
-      showPaymentSuccessView(info);
-
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      simulatePayBtn.disabled = false;
-    }
   });
 
   // ---- Main Search & Download Event Listeners ----
@@ -628,67 +383,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   fetchBtn.addEventListener('click', fetchTrackInfo);
 
-  // Trigger Download button click: Check auth & VIP status first!
+  // Trigger Download button click: Download directly for everyone!
   downloadBtn.addEventListener('click', () => {
-    pendingDownloadAfterVip = true;
-    checkVipAndDownload();
+    executeTrackDownload();
   });
-
-  async function checkVipAndDownload() {
-    if (!currentUser) {
-      openAuthModal('login');
-      return;
-    }
-
-    if (currentUser.vip) {
-      // User is VIP -> Execute download directly!
-      executeTrackDownload();
-      return;
-    }
-
-    // Non-VIP user: try consuming 1 free daily download
-    try {
-      setButtonLoading(downloadBtn, true);
-      hideError();
-
-      const res = await fetch('/api/auth/use-free-download', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        }
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (data.needVip) {
-          // Used up 2 free downloads today -> Open VIP Modal!
-          if (data.user) {
-            currentUser = data.user;
-            updateUserUI();
-          }
-          openVipModal();
-          return;
-        }
-        throw new Error(data.error || 'Lỗi kiểm tra lượt tải.');
-      }
-
-      // Success! Update remaining free downloads count in user UI
-      if (data.user) {
-        currentUser = data.user;
-        updateUserUI();
-      }
-
-      // Execute actual file download!
-      executeTrackDownload();
-
-    } catch (err) {
-      showError(err.message);
-    } finally {
-      setButtonLoading(downloadBtn, false);
-    }
-  }
 
   // ---- Functions ----
 
