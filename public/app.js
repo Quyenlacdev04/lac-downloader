@@ -4,6 +4,17 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
+  // Entry Vector Logo Splash Auto-Dismiss
+  const entrySplash = document.getElementById('entrySplash');
+  if (entrySplash) {
+    setTimeout(() => {
+      entrySplash.classList.add('fade-out');
+      setTimeout(() => {
+        entrySplash.style.display = 'none';
+      }, 500);
+    }, 2400);
+  }
+
   // Main Elements
   const urlInput = document.getElementById('urlInput');
   const clearBtn = document.getElementById('clearBtn');

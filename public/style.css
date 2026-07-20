@@ -2654,6 +2654,120 @@ body {
   }
 }
 
+/* Animated Vector Entry Logo Splash Screen */
+.entry-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  background: radial-gradient(circle at center, #1a0f2b 0%, #090514 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.5s ease;
+}
+
+.entry-splash.fade-out {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.entry-splash-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  animation: entryPopIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes entryPopIn {
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.entry-logo-ring {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  box-shadow: 0 0 40px rgba(255, 106, 0, 0.35), 0 0 60px rgba(238, 9, 121, 0.3);
+}
+
+.entry-logo-svg {
+  width: 100px;
+  height: 100px;
+}
+
+.entry-svg-ring {
+  stroke-dasharray: 280;
+  stroke-dashoffset: 0;
+  animation: entryRingSpin 2s linear infinite;
+  transform-origin: center;
+}
+
+@keyframes entryRingSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.entry-wave {
+  transform-origin: bottom;
+  animation: entryWavePulse 1.2s ease-in-out infinite alternate;
+}
+
+.entry-wave.wave-1 { animation-delay: 0s; }
+.entry-wave.wave-2 { animation-delay: 0.2s; }
+.entry-wave.wave-3 { animation-delay: 0.4s; }
+
+@keyframes entryWavePulse {
+  0% { transform: scaleY(0.5); }
+  100% { transform: scaleY(1.1); }
+}
+
+.entry-arrow {
+  animation: entryArrowBounce 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes entryArrowBounce {
+  0% { transform: translateY(-2px); }
+  100% { transform: translateY(4px); }
+}
+
+.entry-brand-title {
+  font-size: 1.4rem;
+  font-weight: 900;
+  letter-spacing: 3px;
+  background: linear-gradient(135deg, #ff6a00, #ee0979, #00e676);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin: 0;
+}
+
+.entry-progress-bar {
+  width: 140px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.entry-progress-fill {
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, #ff6a00, #ee0979, #00e676);
+  border-radius: 10px;
+  animation: entryFill 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes entryFill {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+
 
 
 
