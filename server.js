@@ -760,17 +760,87 @@ async function runYtDlp(args) {
 // Store info cache for instant response & title reuse
 const infoCache = new Map();
 
-// Helper: YouTube Extractor Args (android_creator & player_skip bypass web bot verification)
+// Helper: YouTube Extractor Args (tv_embedded & android_vr bypass bot verification)
 function getYouTubeArgs() {
   return [
-    '--extractor-args', 'youtube:player_client=android_creator,ios,mweb',
+    '--extractor-args', 'youtube:player_client=tv_embedded,android_vr,mweb,ios',
     '--extractor-args', 'youtube:player_skip=webpage,configs',
-    '--user-agent', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+    '--user-agent', 'Mozilla/5.0 (PlayStation; PlayStation 5/2.26) AppleWebKit/605.1.15 (KHTML, like Gecko)',
     '--no-check-certificates'
   ];
 }
 
-// Fallback: Cobalt API (High-speed multi-datacenter stream proxy for YouTube)
+// Extract YouTube Video ID
+function getYouTubeVideoId(urlStr) {
+  try {
+    const u = new URL(urlStr);
+    if (u.hostname === 'youtu.be') return u.pathname.slice(1);
+    if (u.searchParams.has('v')) return u.searchParams.get('v');
+    const parts = u.pathname.split('/');
+    const shortsIdx = parts.indexOf('shorts');
+    if (shortsIdx !== -1 && parts[shortsIdx + 1]) return parts[shortsIdx + 1];
+    const embedIdx = parts.indexOf('embed');
+    if (embedIdx !== -1 && parts[embedIdx + 1]) return parts[embedIdx + 1];
+  } catch {}
+  return null;
+}
+
+// Fallback 2.1: Invidious Public Direct Stream Downloader
+async function downloadViaInvidiousApi(cleanUrl, format, targetFilePath) {
+  const videoId = getYouTubeVideoId(cleanUrl);
+  if (!videoId) return false;
+
+  console.log(`[INVIDIOUS FALLBACK] Fetching direct stream for videoId: ${videoId}`);
+
+  const instances = [
+    `https://inv.tux.pizza/api/v1/videos/${videoId}`,
+    `https://invidious.nerdvpn.de/api/v1/videos/${videoId}`,
+    `https://vid.puffyan.us/api/v1/videos/${videoId}`,
+    `https://invidious.drgns.space/api/v1/videos/${videoId}`
+  ];
+
+  const isAudio = format === 'mp3' || format === 'wav';
+
+  for (const apiUrl of instances) {
+    try {
+      const res = await fetch(apiUrl);
+      if (!res.ok) continue;
+      const data = await res.json();
+
+      let targetUrl = null;
+
+      if (isAudio && Array.isArray(data.adaptiveFormats)) {
+        const audioStreams = data.adaptiveFormats.filter(f => f.type && f.type.startsWith('audio/'));
+        if (audioStreams.length > 0) {
+          audioStreams.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+          targetUrl = audioStreams[0].url;
+        }
+      } else if (Array.isArray(data.formatStreams)) {
+        const videoStreams = data.formatStreams.filter(f => f.url);
+        if (videoStreams.length > 0) {
+          targetUrl = videoStreams[0].url;
+        }
+      }
+
+      if (targetUrl) {
+        console.log(`[INVIDIOUS FALLBACK SUCCESS] Found stream URL, downloading content...`);
+        const streamRes = await fetch(targetUrl);
+        if (streamRes.ok) {
+          const buffer = Buffer.from(await streamRes.arrayBuffer());
+          fs.writeFileSync(targetFilePath, buffer);
+          console.log(`[INVIDIOUS FALLBACK SUCCESS] Saved ${buffer.length} bytes to ${targetFilePath}`);
+          return true;
+        }
+      }
+    } catch (err) {
+      console.warn(`[INVIDIOUS INSTANCE WARN] ${apiUrl}: ${err.message}`);
+    }
+  }
+
+  return false;
+}
+
+// Fallback 2.2: Cobalt API (High-speed multi-datacenter stream proxy for YouTube)
 async function downloadViaCobaltApi(cleanUrl, format, targetFilePath) {
   try {
     const isAudio = format === 'mp3' || format === 'wav';
@@ -1038,10 +1108,14 @@ app.post('/api/prepare', async (req, res) => {
         await runYtDlp(fallbackArgs);
         downloadSuccess = true;
       } catch (fallbackErr) {
-        console.warn('[PREPARE] Fallback yt-dlp also failed, attempting Cobalt API stream proxy...');
-        // Fallback 2: Cobalt Stream Proxy API
+        console.warn('[PREPARE] Fallback yt-dlp also failed, attempting Invidious & Cobalt API stream proxy...');
+        // Fallback 2: Invidious / Cobalt Stream Proxy API
         if (isYouTube) {
-          downloadSuccess = await downloadViaCobaltApi(cleanUrl, format, targetFilePath);
+          downloadSuccess = await downloadViaInvidiousApi(cleanUrl, format, targetFilePath);
+          if (!downloadSuccess) {
+            console.warn('[PREPARE] Invidious API failed, trying Cobalt API...');
+            downloadSuccess = await downloadViaCobaltApi(cleanUrl, format, targetFilePath);
+          }
         }
       }
     }
