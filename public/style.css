@@ -2699,14 +2699,18 @@ body {
   align-items: center !important;
   justify-content: center !important;
   border-radius: 50% !important;
+  overflow: hidden !important;
   box-shadow: 0 0 20px rgba(255, 106, 0, 0.4), 0 0 30px rgba(238, 9, 121, 0.3) !important;
 }
 
 .entry-logo-svg {
   width: 48px !important;
   height: 48px !important;
+  min-width: 48px !important;
+  min-height: 48px !important;
   max-width: 48px !important;
   max-height: 48px !important;
+  display: block !important;
 }
 
 .entry-svg-ring {
