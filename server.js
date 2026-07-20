@@ -487,15 +487,7 @@ app.get('/api/payment/check-status', async (req, res) => {
     });
   }
 
-  // 3. Check if user is already VIP
-  if (user && user.vip) {
-    return res.json({
-      status: 'SUCCESS',
-      message: 'Tài khoản của bạn đã có VIP!',
-      isVip: true,
-      user: sanitizeUser(user)
-    });
-  }
+  // 3. If no payment found, return PENDING
 
   res.json({
     status: 'PENDING',
