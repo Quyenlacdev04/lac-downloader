@@ -2654,6 +2654,20 @@ body {
   }
 }
 
+/* Hide Main Web Page During Logo Intro Splash */
+.container.web-hidden {
+  opacity: 0 !important;
+  transform: scale(0.97) !important;
+  pointer-events: none !important;
+  transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), transform 0.8s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.container.web-visible {
+  opacity: 1 !important;
+  transform: scale(1) !important;
+  pointer-events: auto !important;
+}
+
 /* Animated Vector Entry Logo Splash Screen (Perfect Standard Sweet-Spot Size) */
 .entry-splash {
   position: fixed !important;

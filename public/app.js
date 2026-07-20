@@ -4,15 +4,24 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
-  // Entry Vector Logo Splash Auto-Dismiss
+  // Entry Vector Logo Splash Auto-Dismiss -> Then reveal main website!
   const entrySplash = document.getElementById('entrySplash');
+  const mainContainer = document.querySelector('.container');
+
   if (entrySplash) {
     setTimeout(() => {
       entrySplash.classList.add('fade-out');
+      if (mainContainer) {
+        mainContainer.classList.remove('web-hidden');
+        mainContainer.classList.add('web-visible');
+      }
       setTimeout(() => {
         entrySplash.style.display = 'none';
       }, 500);
     }, 2400);
+  } else if (mainContainer) {
+    mainContainer.classList.remove('web-hidden');
+    mainContainer.classList.add('web-visible');
   }
 
   // Main Elements
