@@ -2600,3 +2600,58 @@ body {
   box-shadow: 0 4px 15px rgba(255, 106, 0, 0.4);
 }
 
+/* Platform Navigation Tabs (SoundCloud vs YouTube) */
+.platform-tabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  justify-content: center;
+}
+
+.platform-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(12px);
+}
+
+.platform-tab:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  transform: translateY(-2px);
+}
+
+.platform-tab.active.tab-soundcloud {
+  background: linear-gradient(135deg, #ff6a00 0%, #ee0979 100%);
+  border-color: transparent;
+  color: #ffffff;
+  box-shadow: 0 6px 20px rgba(255, 106, 0, 0.45);
+}
+
+.platform-tab.active.tab-youtube {
+  background: linear-gradient(135deg, #ff0000 0%, #c40000 100%);
+  border-color: transparent;
+  color: #ffffff;
+  box-shadow: 0 6px 20px rgba(255, 0, 0, 0.45);
+}
+
+@media (max-width: 600px) {
+  .platform-tabs {
+    flex-direction: column;
+  }
+  .platform-tab {
+    justify-content: center;
+    width: 100%;
+  }
+}
+
+

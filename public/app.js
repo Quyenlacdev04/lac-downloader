@@ -49,6 +49,26 @@ document.addEventListener('DOMContentLoaded', () => {
   const regError = document.getElementById('regError');
   const quickDemoBtn = document.getElementById('quickDemoBtn');
 
+  // Platform Tab Elements & State
+  const platformTabs = document.querySelectorAll('.platform-tab');
+  let currentPlatform = 'soundcloud';
+
+  platformTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      platformTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentPlatform = tab.dataset.platform || 'soundcloud';
+
+      if (currentPlatform === 'soundcloud') {
+        urlInput.placeholder = 'Dán link SoundCloud vào đây (ví dụ: https://soundcloud.com/artist/track)...';
+      } else {
+        urlInput.placeholder = 'Dán link YouTube vào đây (ví dụ: https://www.youtube.com/watch?v=...)...';
+      }
+
+      hideError();
+    });
+  });
+
   // State Variables
   let currentUrl = '';
   let currentTrackInfo = null;
@@ -400,16 +420,22 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const parsed = new URL(u);
       const host = parsed.hostname.toLowerCase();
-      return (
-        host === 'soundcloud.com' ||
-        host.endsWith('.soundcloud.com') ||
-        host === 'snd.sc' ||
-        host.includes('soundcloud') ||
-        host === 'youtube.com' ||
-        host.endsWith('.youtube.com') ||
-        host === 'youtu.be' ||
-        host.includes('youtube')
-      );
+
+      if (currentPlatform === 'soundcloud') {
+        return (
+          host === 'soundcloud.com' ||
+          host.endsWith('.soundcloud.com') ||
+          host === 'snd.sc' ||
+          host.includes('soundcloud')
+        );
+      } else {
+        return (
+          host === 'youtube.com' ||
+          host.endsWith('.youtube.com') ||
+          host === 'youtu.be' ||
+          host.includes('youtube')
+        );
+      }
     } catch {
       return false;
     }
@@ -469,12 +495,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const url = urlInput.value.trim();
 
     if (!url) {
-      showError('Vui lòng nhập link YouTube hoặc SoundCloud.');
+      showError(currentPlatform === 'soundcloud' ? 'Vui lòng nhập link SoundCloud.' : 'Vui lòng nhập link YouTube.');
       return;
     }
 
     if (!isValidMediaUrl(url)) {
-      showError('Link không hợp lệ. Vui lòng nhập đúng link YouTube hoặc SoundCloud (ví dụ: youtube.com/watch?v=... hoặc soundcloud.com/artist/track)');
+      if (currentPlatform === 'soundcloud') {
+        showError('Link không hợp lệ. Vui lòng dán link SoundCloud (ví dụ: https://soundcloud.com/artist/track)');
+      } else {
+        showError('Link không hợp lệ. Vui lòng dán link YouTube (ví dụ: https://www.youtube.com/watch?v=...)');
+      }
       return;
     }
 
