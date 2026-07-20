@@ -614,42 +614,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Actual Download Execution
-  async function executeTrackDownload() {
+  // Actual Download Execution (INSTANT 0-SECOND DIRECT DOWNLOAD)
+  function executeTrackDownload() {
     if (!currentUrl) return;
 
-    setButtonLoading(downloadBtn, true);
     hideError();
 
-    try {
-      const prepareResponse = await fetch('/api/prepare', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: currentUrl, format: selectedFormat })
-      });
-
-      const prepareData = await prepareResponse.json();
-
-      if (!prepareResponse.ok) {
-        throw new Error(prepareData.error || 'Không thể tải bài hát.');
-      }
-
-      const a = document.createElement('a');
-      a.href = `/api/serve/${prepareData.token}`;
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-
-      downloadBtn.classList.add('download-success');
-      setTimeout(() => downloadBtn.classList.remove('download-success'), 600);
-
-    } catch (error) {
-      showError(error.message);
-    } finally {
-      setButtonLoading(downloadBtn, false);
-      pendingDownloadAfterVip = false;
+    // Instant UI visual response (0s wait time!)
+    downloadBtn.classList.add('download-success');
+    const content = downloadBtn.querySelector('.btn-content');
+    const originalText = content ? content.innerHTML : '';
+    if (content) {
+      content.innerHTML = '⚡ Đang tải về ngay...';
     }
+
+    // Trigger instant browser download bar immediately (0.01s!)
+    const directUrl = `/api/download-direct?url=${encodeURIComponent(currentUrl)}&format=${encodeURIComponent(selectedFormat)}`;
+    const a = document.createElement('a');
+    a.href = directUrl;
+    a.download = '';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    setTimeout(() => {
+      downloadBtn.classList.remove('download-success');
+      if (content && originalText) {
+        content.innerHTML = originalText;
+      }
+    }, 1500);
   }
 
   // Create floating particles

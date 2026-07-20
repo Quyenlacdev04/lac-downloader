@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { exec, execFile } = require('child_process');
+const { exec, execFile, spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -1252,6 +1252,123 @@ app.get('/api/serve/:token', (req, res) => {
       res.status(500).json({ error: 'Lỗi khi gửi file.' });
     }
   });
+// API: Instant Direct Streaming Endpoint (0-second load time, browser download bar pops up in 0.01s!)
+app.get('/api/download-direct', async (req, res) => {
+  try {
+    const { url, format } = req.query;
+    const cleanUrl = normalizeMediaUrl(url);
+
+    if (!cleanUrl) {
+      return res.status(400).send('URL không hợp lệ');
+    }
+
+    const isYouTube = /youtube\.com|youtu\.be/i.test(cleanUrl);
+    const isAudio = format === 'mp3' || format === 'wav' || format === 'original';
+
+    // Fast title resolution from infoCache
+    let title = 'media_download';
+    if (infoCache.has(cleanUrl)) {
+      const cached = infoCache.get(cleanUrl);
+      title = `${cached.artist} - ${cached.title}`.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
+    }
+
+    const ext = format === 'wav' ? 'wav' : (isAudio ? 'mp3' : 'mp4');
+    const filename = `${title}.${ext}`;
+    const asciiName = filename.replace(/[^\x20-\x7E]/g, '_');
+
+    // Set HTTP Headers IMMEDIATELY so browser shows download prompt in 0.01 seconds!
+    res.setHeader('Content-Disposition', `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    res.setHeader('Content-Type', isAudio ? 'audio/mpeg' : 'video/mp4');
+
+    // Method 1: Instant Direct CDN Pipe for YouTube (Completes in 0s start!)
+    if (isYouTube) {
+      const vId = getYouTubeVideoId(cleanUrl);
+      if (vId) {
+        const instances = [
+          `https://pipedapi.kavin.rocks/streams/${vId}`,
+          `https://api.piped.video/streams/${vId}`,
+          `https://pipedapi.tokhmi.xyz/streams/${vId}`
+        ];
+
+        for (const apiUrl of instances) {
+          try {
+            const apiRes = await fetch(apiUrl, { signal: AbortSignal.timeout(4000) });
+            if (!apiRes.ok) continue;
+            const data = await apiRes.json();
+
+            let directUrl = null;
+            if (isAudio && Array.isArray(data.audioStreams) && data.audioStreams.length > 0) {
+              data.audioStreams.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+              directUrl = data.audioStreams[0].url;
+            } else if (Array.isArray(data.videoStreams) && data.videoStreams.length > 0) {
+              directUrl = data.videoStreams[0].url;
+            }
+
+            if (directUrl) {
+              console.log(`[DIRECT STREAM PIPE SUCCESS] Piping stream directly to browser: ${filename}`);
+              const streamRes = await fetch(directUrl);
+              if (streamRes.ok && streamRes.body) {
+                const reader = streamRes.body.getReader();
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  res.write(value);
+                }
+                return res.end();
+              }
+            }
+          } catch (err) {
+            console.warn('[DIRECT STREAM PIPE WARN]', err.message);
+          }
+        }
+      }
+    }
+
+    // Method 2: STDOUT pipe from yt-dlp directly into res
+    console.log(`[DIRECT DOWNLOAD STDOUT] Streaming via yt-dlp pipe: ${filename}`);
+    const downloadArgs = [
+      '--no-warnings',
+      '--no-playlist',
+      '--concurrent-fragments', '16',
+      '-N', '16',
+      '-o', '-'
+    ];
+
+    if (isYouTube) {
+      downloadArgs.push(...getYouTubeArgs());
+    }
+
+    if (isAudio) {
+      downloadArgs.push('-f', 'bestaudio/best');
+    } else if (isYouTube && format === 'mp4_1080') {
+      downloadArgs.push('-f', 'b[height<=1080][ext=mp4]/bestvideo[height<=1080]+bestaudio/best');
+    } else if (isYouTube && format === 'mp4_720') {
+      downloadArgs.push('-f', 'b[height<=720][ext=mp4]/bestvideo[height<=720]+bestaudio/best');
+    } else {
+      downloadArgs.push('-f', 'b[ext=mp4]/bestvideo+bestaudio/best');
+    }
+
+    downloadArgs.push(cleanUrl);
+
+    const binaryPath = await ensureYtDlpBinary();
+    const child = spawn(binaryPath, downloadArgs);
+
+    child.stdout.pipe(res);
+
+    child.stderr.on('data', (data) => {
+      console.warn(`[yt-dlp pipe stderr] ${data.toString()}`);
+    });
+
+    req.on('close', () => {
+      child.kill();
+    });
+
+  } catch (err) {
+    console.error('[DIRECT DOWNLOAD ERROR]', err.message);
+    if (!res.headersSent) {
+      res.status(500).send('Lỗi khi tải bài hát/video.');
+    }
+  }
 });
 
 // Health check
