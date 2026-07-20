@@ -763,7 +763,8 @@ const infoCache = new Map();
 // Helper: YouTube Extractor Args (android_creator & player_skip bypass web bot verification)
 function getYouTubeArgs() {
   return [
-    '--extractor-args', 'youtube:player_client=android_creator,ios,mweb;player_skip=webpage,configs',
+    '--extractor-args', 'youtube:player_client=android_creator,ios,mweb',
+    '--extractor-args', 'youtube:player_skip=webpage,configs',
     '--user-agent', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
     '--no-check-certificates'
   ];
@@ -974,8 +975,8 @@ app.post('/api/prepare', async (req, res) => {
     fs.mkdirSync(tmpDir, { recursive: true });
 
     const extForFormat = format === 'wav' ? '.wav' : (format === 'mp3' ? '.mp3' : '.mp4');
-    const targetFilePath = path.join(tmpDir, `${title}${extForFormat}`);
-    const outputTemplate = path.join(tmpDir, '%(title)s.%(ext)s');
+    const targetFilePath = path.join(tmpDir, `media${extForFormat}`);
+    const outputTemplate = path.join(tmpDir, 'download.%(ext)s');
 
     // Build multi-threaded high-speed download arguments
     const downloadArgs = [
