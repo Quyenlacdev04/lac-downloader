@@ -757,6 +757,17 @@ async function runYtDlp(args) {
   });
 }
 
+// Store info cache for instant response & title reuse
+const infoCache = new Map();
+
+// Helper: YouTube Extractor Args (mweb & tvhtml5 never enforce bot login on cloud IPs)
+function getYouTubeArgs() {
+  return [
+    '--extractor-args', 'youtube:player_client=mweb,tvhtml5,android,ios',
+    '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+  ];
+}
+
 // API: Get track/video info
 app.post('/api/info', async (req, res) => {
   try {
@@ -767,6 +778,12 @@ app.post('/api/info', async (req, res) => {
       return res.status(400).json({
         error: 'URL không hợp lệ. Vui lòng nhập link YouTube hoặc SoundCloud (ví dụ: youtube.com/watch?v=... hoặc soundcloud.com/artist/track).'
       });
+    }
+
+    // 0. Fast Cache Hit (0.01 seconds instant load)
+    if (infoCache.has(cleanUrl)) {
+      console.log(`[INFO CACHE HIT] Returning cached info for: ${cleanUrl}`);
+      return res.json(infoCache.get(cleanUrl));
     }
 
     console.log(`[INFO] Fetching info for: ${cleanUrl}`);
@@ -783,8 +800,7 @@ app.post('/api/info', async (req, res) => {
       ];
 
       if (isYouTube) {
-        infoArgs.push('--extractor-args', 'youtube:player_client=android,ios,mweb,web');
-        infoArgs.push('--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+        infoArgs.push(...getYouTubeArgs());
       }
 
       infoArgs.push(cleanUrl);
@@ -836,6 +852,9 @@ app.post('/api/info', async (req, res) => {
       });
     }
 
+    // Save to cache for instant future loads
+    infoCache.set(cleanUrl, trackInfo);
+
     console.log(`[INFO] Media found: ${trackInfo.title} - ${trackInfo.artist}`);
     res.json(trackInfo);
   } catch (error) {
@@ -878,25 +897,29 @@ app.post('/api/prepare', async (req, res) => {
     console.log(`[PREPARE] Starting download for: ${cleanUrl} (format: ${format || 'original'})`);
     const isYouTube = /youtube\.com|youtu\.be/i.test(cleanUrl);
 
-    // Get track info for filename
+    // Get track info for filename (Fast lookup from infoCache)
     let title = 'media_download';
-    try {
-      const titleArgs = ['--dump-json', '--no-warnings', '--no-playlist'];
-      if (isYouTube) {
-        titleArgs.push('--extractor-args', 'youtube:player_client=android,ios,mweb,web');
-        titleArgs.push('--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
-      }
-      titleArgs.push(cleanUrl);
+    if (infoCache.has(cleanUrl)) {
+      const cached = infoCache.get(cleanUrl);
+      title = `${cached.artist} - ${cached.title}`.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
+    } else {
+      try {
+        const titleArgs = ['--dump-json', '--no-warnings', '--no-playlist'];
+        if (isYouTube) {
+          titleArgs.push(...getYouTubeArgs());
+        }
+        titleArgs.push(cleanUrl);
 
-      const infoOutput = await runYtDlp(titleArgs);
-      const info = parseYtDlpJson(infoOutput);
-      title = `${info.uploader || info.artist || info.channel || 'Media'} - ${info.title || 'Track'}`;
-      title = title.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
-    } catch (e) {
-      console.warn('[PREPARE] Could not get media title via yt-dlp, trying OEmbed fallback');
-      const oembedData = await fetchOembedInfo(cleanUrl);
-      if (oembedData) {
-        title = `${oembedData.artist} - ${oembedData.title}`.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
+        const infoOutput = await runYtDlp(titleArgs);
+        const info = parseYtDlpJson(infoOutput);
+        title = `${info.uploader || info.artist || info.channel || 'Media'} - ${info.title || 'Track'}`;
+        title = title.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
+      } catch (e) {
+        console.warn('[PREPARE] Could not get media title via yt-dlp, trying OEmbed fallback');
+        const oembedData = await fetchOembedInfo(cleanUrl);
+        if (oembedData) {
+          title = `${oembedData.artist} - ${oembedData.title}`.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
+        }
       }
     }
 
@@ -906,15 +929,17 @@ app.post('/api/prepare', async (req, res) => {
 
     const outputTemplate = path.join(tmpDir, '%(title)s.%(ext)s');
 
-    // Build primary download arguments based on format and platform
+    // Build multi-threaded high-speed download arguments
     const downloadArgs = [
       '--no-warnings',
-      '--no-playlist'
+      '--no-playlist',
+      '--concurrent-fragments', '8',
+      '--no-mtime',
+      '--no-part'
     ];
 
     if (isYouTube) {
-      downloadArgs.push('--extractor-args', 'youtube:player_client=android,ios,mweb,web');
-      downloadArgs.push('--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+      downloadArgs.push(...getYouTubeArgs());
     }
 
     if (FFMPEG_PATH && FFMPEG_PATH !== 'ffmpeg') {
@@ -945,11 +970,13 @@ app.post('/api/prepare', async (req, res) => {
       // Fallback: simple best format download without strict conversion flags
       const fallbackArgs = [
         '--no-warnings',
-        '--no-playlist'
+        '--no-playlist',
+        '--concurrent-fragments', '8',
+        '--no-mtime',
+        '--no-part'
       ];
       if (isYouTube) {
-        fallbackArgs.push('--extractor-args', 'youtube:player_client=android,ios,mweb,web');
-        fallbackArgs.push('--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+        fallbackArgs.push(...getYouTubeArgs());
       }
       fallbackArgs.push('-f', 'bestaudio/best/bestvideo+bestaudio/best', '-o', outputTemplate, cleanUrl);
 
