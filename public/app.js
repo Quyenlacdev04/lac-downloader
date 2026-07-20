@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // State Variables
   let currentUrl = '';
   let currentTrackInfo = null;
-  let selectedFormat = 'original';
+  let selectedFormat = 'mp3';
   let currentUser = null;
   let authToken = localStorage.getItem('sc_auth_token') || null;
 
@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', () => {
       formatBtns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      selectedFormat = btn.dataset.format || 'original';
+      selectedFormat = btn.dataset.format || 'mp3';
     });
   });
 
@@ -368,7 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
   urlInput.addEventListener('paste', (e) => {
     setTimeout(() => {
       const val = urlInput.value.trim();
-      if (val && isValidSoundCloudUrl(val)) {
+      if (val && isValidMediaUrl(val)) {
         fetchTrackInfo();
       }
     }, 100);
@@ -390,7 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ---- Functions ----
 
-  function isValidSoundCloudUrl(url) {
+  function isValidMediaUrl(url) {
     if (!url || typeof url !== 'string') return false;
     let u = url.trim();
     if (!u) return false;
@@ -404,7 +404,11 @@ document.addEventListener('DOMContentLoaded', () => {
         host === 'soundcloud.com' ||
         host.endsWith('.soundcloud.com') ||
         host === 'snd.sc' ||
-        host.includes('soundcloud')
+        host.includes('soundcloud') ||
+        host === 'youtube.com' ||
+        host.endsWith('.youtube.com') ||
+        host === 'youtu.be' ||
+        host.includes('youtube')
       );
     } catch {
       return false;
@@ -460,17 +464,17 @@ document.addEventListener('DOMContentLoaded', () => {
     return num.toString();
   }
 
-  // Fetch track info (works 100% free for all users!)
+  // Fetch track/video info (works 100% free for all users!)
   async function fetchTrackInfo() {
     const url = urlInput.value.trim();
 
     if (!url) {
-      showError('Vui lòng nhập link SoundCloud.');
+      showError('Vui lòng nhập link YouTube hoặc SoundCloud.');
       return;
     }
 
-    if (!isValidSoundCloudUrl(url)) {
-      showError('Link không hợp lệ. Vui lòng nhập đúng link SoundCloud (ví dụ: https://soundcloud.com/artist/track)');
+    if (!isValidMediaUrl(url)) {
+      showError('Link không hợp lệ. Vui lòng nhập đúng link YouTube hoặc SoundCloud (ví dụ: youtube.com/watch?v=... hoặc soundcloud.com/artist/track)');
       return;
     }
 

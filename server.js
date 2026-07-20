@@ -599,8 +599,8 @@ app.post('/api/auth/subscribe', (req, res) => {
   });
 });
 
-// Normalize & Validate SoundCloud URL
-function normalizeSoundCloudUrl(rawUrl) {
+// Normalize & Validate YouTube and SoundCloud URL
+function normalizeMediaUrl(rawUrl) {
   if (!rawUrl || typeof rawUrl !== 'string') return null;
   let u = rawUrl.trim();
   if (!u) return null;
@@ -614,7 +614,11 @@ function normalizeSoundCloudUrl(rawUrl) {
       host === 'soundcloud.com' ||
       host.endsWith('.soundcloud.com') ||
       host === 'snd.sc' ||
-      host.includes('soundcloud')
+      host.includes('soundcloud') ||
+      host === 'youtube.com' ||
+      host.endsWith('.youtube.com') ||
+      host === 'youtu.be' ||
+      host.includes('youtube')
     ) {
       return parsed.href;
     }
@@ -622,8 +626,8 @@ function normalizeSoundCloudUrl(rawUrl) {
   return null;
 }
 
-function isValidSoundCloudUrl(url) {
-  return normalizeSoundCloudUrl(url) !== null;
+function isValidMediaUrl(url) {
+  return normalizeMediaUrl(url) !== null;
 }
 
 // Helper: parse JSON safely from yt-dlp stdout
@@ -640,24 +644,28 @@ function parseYtDlpJson(output) {
   return JSON.parse(output);
 }
 
-// Helper: OEmbed Fallback from SoundCloud API
+// Helper: OEmbed Fallback from SoundCloud or YouTube API
 async function fetchOembedInfo(targetUrl) {
   try {
-    const oembedUrl = `https://soundcloud.com/oembed?url=${encodeURIComponent(targetUrl)}&format=json`;
+    const isYouTube = /youtube\.com|youtu\.be/i.test(targetUrl);
+    const oembedUrl = isYouTube
+      ? `https://www.youtube.com/oembed?url=${encodeURIComponent(targetUrl)}&format=json`
+      : `https://soundcloud.com/oembed?url=${encodeURIComponent(targetUrl)}&format=json`;
+
     const response = await fetch(oembedUrl);
     if (response.ok) {
       const data = await response.json();
       return {
-        title: data.title || 'SoundCloud Track',
-        artist: data.author_name || 'SoundCloud Artist',
+        title: data.title || (isYouTube ? 'YouTube Video' : 'SoundCloud Track'),
+        artist: data.author_name || (isYouTube ? 'YouTube Channel' : 'SoundCloud Artist'),
         duration: 0,
         thumbnail: data.thumbnail_url || '',
         description: '',
-        genre: 'SoundCloud',
+        genre: isYouTube ? 'YouTube' : 'SoundCloud',
         upload_date: '',
         view_count: 0,
         like_count: 0,
-        format: { ext: 'mp3', abr: 320, acodec: 'MP3', filesize: null }
+        format: { ext: isYouTube ? 'mp4' : 'mp3', abr: 320, acodec: isYouTube ? 'AAC' : 'MP3', filesize: null }
       };
     }
   } catch (err) {
@@ -669,7 +677,7 @@ async function fetchOembedInfo(targetUrl) {
 // Helper: run yt-dlp command
 function runYtDlp(args) {
   return new Promise((resolve, reject) => {
-    execFile(YTDLP_PATH, args, { maxBuffer: 10 * 1024 * 1024, timeout: 120000 }, (error, stdout, stderr) => {
+    execFile(YTDLP_PATH, args, { maxBuffer: 10 * 1024 * 1024, timeout: 180000 }, (error, stdout, stderr) => {
       if (error) {
         console.error('yt-dlp error:', stderr || error.message);
         reject(new Error(stderr || error.message));
@@ -680,15 +688,15 @@ function runYtDlp(args) {
   });
 }
 
-// API: Get track info
+// API: Get track/video info
 app.post('/api/info', async (req, res) => {
   try {
     const { url } = req.body;
-    const cleanUrl = normalizeSoundCloudUrl(url);
+    const cleanUrl = normalizeMediaUrl(url);
 
     if (!cleanUrl) {
       return res.status(400).json({
-        error: 'URL không hợp lệ. Vui lòng nhập link SoundCloud đúng định dạng (ví dụ: soundcloud.com/artist/track).'
+        error: 'URL không hợp lệ. Vui lòng nhập link YouTube hoặc SoundCloud (ví dụ: youtube.com/watch?v=... hoặc soundcloud.com/artist/track).'
       });
     }
 
@@ -718,41 +726,44 @@ app.post('/api/info', async (req, res) => {
         }
       }
 
+      const isVideo = Array.isArray(info.formats) && info.formats.some(f => f.vcodec && f.vcodec !== 'none');
+
       trackInfo = {
         title: info.title || 'Unknown',
-        artist: info.uploader || info.artist || 'Unknown',
+        artist: info.uploader || info.artist || info.channel || 'Unknown',
         duration: info.duration || 0,
-        thumbnail: info.thumbnail || '',
+        thumbnail: info.thumbnail || (info.thumbnails && info.thumbnails.length ? info.thumbnails[info.thumbnails.length - 1].url : ''),
         description: info.description ? info.description.substring(0, 200) : '',
-        genre: info.genre || '',
+        genre: info.genre || (isVideo ? 'YouTube Video' : 'Music'),
         upload_date: info.upload_date || '',
         view_count: info.view_count || 0,
         like_count: info.like_count || 0,
+        isVideo: isVideo,
         format: bestFormat ? {
-          ext: bestFormat.ext || 'mp3',
+          ext: bestFormat.ext || (isVideo ? 'mp4' : 'mp3'),
           abr: bestBitrate,
           acodec: bestFormat.acodec || 'unknown',
           filesize: bestFormat.filesize || bestFormat.filesize_approx || null
-        } : { ext: 'mp3', abr: 128, acodec: 'mp3', filesize: null }
+        } : { ext: isVideo ? 'mp4' : 'mp3', abr: 128, acodec: isVideo ? 'aac' : 'mp3', filesize: null }
       };
     } catch (ytErr) {
       console.warn('[INFO] yt-dlp info fetch failed, trying OEmbed fallback:', ytErr.message);
-      // 2. Fallback to SoundCloud OEmbed API
+      // 2. Fallback to OEmbed API
       trackInfo = await fetchOembedInfo(cleanUrl);
     }
 
     if (!trackInfo) {
       return res.status(400).json({
-        error: 'Không thể lấy thông tin bài hát. Vui lòng kiểm tra lại link SoundCloud có đúng hoặc có công khai không.'
+        error: 'Không thể lấy thông tin bài hát/video. Vui lòng kiểm tra lại link YouTube / SoundCloud có công khai không.'
       });
     }
 
-    console.log(`[INFO] Track found: ${trackInfo.title} - ${trackInfo.artist}`);
+    console.log(`[INFO] Media found: ${trackInfo.title} - ${trackInfo.artist}`);
     res.json(trackInfo);
   } catch (error) {
     console.error('[ERROR] Info fetch failed:', error.message);
     res.status(500).json({
-      error: 'Không thể lấy thông tin bài hát. Vui lòng kiểm tra lại link.'
+      error: 'Không thể lấy thông tin bài hát/video. Vui lòng kiểm tra lại link.'
     });
   }
 });
@@ -778,25 +789,25 @@ setInterval(() => {
 app.post('/api/prepare', async (req, res) => {
   try {
     const { url, format } = req.body;
-    const cleanUrl = normalizeSoundCloudUrl(url);
+    const cleanUrl = normalizeMediaUrl(url);
 
     if (!cleanUrl) {
       return res.status(400).json({
-        error: 'URL không hợp lệ. Vui lòng nhập link SoundCloud đúng định dạng.'
+        error: 'URL không hợp lệ. Vui lòng nhập link YouTube hoặc SoundCloud đúng định dạng.'
       });
     }
 
     console.log(`[PREPARE] Starting download for: ${cleanUrl} (format: ${format || 'original'})`);
 
     // Get track info for filename
-    let title = 'soundcloud_track';
+    let title = 'media_download';
     try {
       const infoOutput = await runYtDlp(['--dump-json', '--no-warnings', '--no-playlist', cleanUrl]);
       const info = parseYtDlpJson(infoOutput);
-      title = `${info.uploader || 'Unknown'} - ${info.title || 'Unknown'}`;
+      title = `${info.uploader || info.artist || info.channel || 'Media'} - ${info.title || 'Track'}`;
       title = title.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
     } catch (e) {
-      console.warn('[PREPARE] Could not get track title via yt-dlp, trying OEmbed fallback');
+      console.warn('[PREPARE] Could not get media title via yt-dlp, trying OEmbed fallback');
       const oembedData = await fetchOembedInfo(cleanUrl);
       if (oembedData) {
         title = `${oembedData.artist} - ${oembedData.title}`.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
@@ -804,7 +815,7 @@ app.post('/api/prepare', async (req, res) => {
     }
 
     // Create temp directory for download
-    const tmpDir = path.join(os.tmpdir(), 'sc-downloader-' + Date.now());
+    const tmpDir = path.join(os.tmpdir(), 'media-downloader-' + Date.now());
     fs.mkdirSync(tmpDir, { recursive: true });
 
     const outputTemplate = path.join(tmpDir, '%(title)s.%(ext)s');
@@ -823,11 +834,15 @@ app.post('/api/prepare', async (req, res) => {
       downloadArgs.push('-f', 'bestaudio/best', '-x', '--audio-format', 'mp3', '--audio-quality', '0');
     } else if (format === 'wav') {
       downloadArgs.push('-f', 'bestaudio/best', '-x', '--audio-format', 'wav');
+    } else if (format === 'mp4_1080') {
+      downloadArgs.push('-f', 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best', '--recode-video', 'mp4');
+    } else if (format === 'mp4_720') {
+      downloadArgs.push('-f', 'bestvideo[height<=720]+bestaudio/best[height<=720]/bestvideo+bestaudio/best', '--recode-video', 'mp4');
     } else if (format === 'mp4') {
-      downloadArgs.push('-f', 'bestaudio/best', '-x', '--audio-format', 'mp4');
+      downloadArgs.push('-f', 'bestvideo+bestaudio/best', '--recode-video', 'mp4');
     } else {
-      // Original quality (as uploaded)
-      downloadArgs.push('-f', 'bestaudio/best');
+      // Original quality
+      downloadArgs.push('-f', 'bestvideo+bestaudio/bestaudio/best');
     }
 
     downloadArgs.push('-o', outputTemplate, cleanUrl);
