@@ -383,9 +383,6 @@ function processAutoVipUpgrade(memo, amount) {
 // API: Create Real PayOS Payment Order & Link
 app.post('/api/payment/create-order', async (req, res) => {
   const user = getUserFromReq(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Vui lòng đăng nhập để nâng cấp VIP.' });
-  }
 
   const { plan } = req.body; // '1m', '2m', '3m'
   const planMap = {
@@ -396,7 +393,7 @@ app.post('/api/payment/create-order', async (req, res) => {
 
   const info = planMap[plan] || planMap['3m'];
   const orderCode = Number(String(Date.now()).slice(-6));
-  const uname = user.username.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const uname = (user ? user.username : 'GUEST').toUpperCase().replace(/[^A-Z0-9]/g, '');
   const description = `NAP VIP${(plan || '3m').toUpperCase()} ${uname}`.slice(0, 25);
 
   const orderInfo = {
@@ -404,8 +401,8 @@ app.post('/api/payment/create-order', async (req, res) => {
     amount: info.amount,
     description,
     plan: plan || '3m',
-    userId: user.id,
-    username: user.username,
+    userId: user ? user.id : null,
+    username: user ? user.username : 'GUEST',
     status: 'PENDING',
     createdAt: new Date().toISOString()
   };

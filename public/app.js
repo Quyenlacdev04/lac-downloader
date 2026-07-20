@@ -442,7 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  async function openPaymentModal() {
+  function openPaymentModal() {
     resetPaymentModalViews();
 
     const planMap = {
@@ -468,40 +468,43 @@ document.addEventListener('DOMContentLoaded', () => {
       autoPollingText.textContent = '🔄 Tự động kiểm tra chuyển khoản từ KienlongBank...';
     }
 
-    // Default VietQR image
+    // Default VietQR image (hiển thị ngay lập tức)
     const bankId = 'KLB';
     const accountNo = '6909092005';
     const accountName = 'VU VAN QUYEN';
-    let qrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${info.amount}&addInfo=${encodeURIComponent(currentPaymentMemo)}&accountName=${encodeURIComponent(accountName)}`;
-
-    // Call server to create real PayOS order link
-    try {
-      const orderRes = await fetch('/api/payment/create-order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
-        },
-        body: JSON.stringify({ plan: selectedVipPlan })
-      });
-      const orderData = await orderRes.json();
-      if (orderData.success) {
-        currentOrderCode = orderData.orderCode;
-        if (orderData.qrCode) {
-          qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(orderData.qrCode)}`;
-        }
-      }
-    } catch (e) {
-      console.warn('PayOS order creation warning:', e);
-    }
+    const defaultQrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${info.amount}&addInfo=${encodeURIComponent(currentPaymentMemo)}&accountName=${encodeURIComponent(accountName)}`;
 
     if (vietqrImg) {
-      vietqrImg.src = qrUrl;
+      vietqrImg.src = defaultQrUrl;
     }
 
+    // *** HIỂN THỊ MODAL NGAY LẬP TỨC - KHÔNG CHỜ API ***
     paymentModal.classList.remove('hidden');
 
-    // Start 24/7 Automatic Bank Transfer Status Polling (Every 2.5 seconds)
+    // Gọi PayOS API trong nền (không chặn giao diện)
+    (async () => {
+      try {
+        const orderRes = await fetch('/api/payment/create-order', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+          },
+          body: JSON.stringify({ plan: selectedVipPlan })
+        });
+        const orderData = await orderRes.json();
+        if (orderData.success) {
+          currentOrderCode = orderData.orderCode;
+          if (orderData.qrCode && vietqrImg) {
+            vietqrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(orderData.qrCode)}`;
+          }
+        }
+      } catch (e) {
+        console.warn('PayOS order creation warning:', e);
+      }
+    })();
+
+    // Start 24/7 Automatic Bank Transfer Status Polling (Every 3 seconds)
     if (paymentPollingInterval) clearInterval(paymentPollingInterval);
 
     paymentPollingInterval = setInterval(async () => {
@@ -515,6 +518,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.status === 'SUCCESS') {
           if (data.user) {
             currentUser = data.user;
+            localStorage.setItem('sc_user_data', JSON.stringify(currentUser));
             updateUserUI();
           }
 
@@ -523,7 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (err) {
         console.warn('Auto polling check warning:', err);
       }
-    }, 2500);
+    }, 3000);
   }
 
   // Copy buttons handler for both .btn-copy and .btn-payos-copy
