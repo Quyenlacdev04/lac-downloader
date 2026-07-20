@@ -1252,6 +1252,8 @@ app.get('/api/serve/:token', (req, res) => {
       res.status(500).json({ error: 'Lỗi khi gửi file.' });
     }
   });
+});
+
 // API: Instant Direct Streaming Endpoint (0-second load time, browser download bar pops up in 0.01s!)
 app.get('/api/download-direct', async (req, res) => {
   try {
