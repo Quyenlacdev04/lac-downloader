@@ -765,13 +765,13 @@ async function runYtDlp(args) {
 // Store info cache for instant response & title reuse
 const infoCache = new Map();
 
-// Helper: YouTube Extractor Args (tv_embedded & android_vr bypass bot verification)
+// Helper: YouTube Extractor Args (ios & mweb client with official YouTube iOS user-agent)
 function getYouTubeArgs() {
   return [
-    '--extractor-args', 'youtube:player_client=tv_embedded,android_vr,mweb,ios',
-    '--extractor-args', 'youtube:player_skip=webpage,configs',
-    '--user-agent', 'Mozilla/5.0 (PlayStation; PlayStation 5/2.26) AppleWebKit/605.1.15 (KHTML, like Gecko)',
-    '--no-check-certificates'
+    '--extractor-args', 'youtube:player_client=ios,mweb',
+    '--user-agent', 'com.google.ios.youtube/19.12.3 (iPhone16,2; U; CPU iOS 17_4_1 like Mac OS X; en_US)',
+    '--no-check-certificates',
+    '--geo-bypass'
   ];
 }
 
@@ -779,15 +779,59 @@ function getYouTubeArgs() {
 function getYouTubeVideoId(urlStr) {
   try {
     const u = new URL(urlStr);
-    if (u.hostname === 'youtu.be') return u.pathname.slice(1);
+    if (u.hostname === 'youtu.be') return u.pathname.slice(1).split('?')[0].split('&')[0];
     if (u.searchParams.has('v')) return u.searchParams.get('v');
     const parts = u.pathname.split('/');
     const shortsIdx = parts.indexOf('shorts');
-    if (shortsIdx !== -1 && parts[shortsIdx + 1]) return parts[shortsIdx + 1];
+    if (shortsIdx !== -1 && parts[shortsIdx + 1]) return parts[shortsIdx + 1].split('?')[0];
     const embedIdx = parts.indexOf('embed');
-    if (embedIdx !== -1 && parts[embedIdx + 1]) return parts[embedIdx + 1];
+    if (embedIdx !== -1 && parts[embedIdx + 1]) return parts[embedIdx + 1].split('?')[0];
   } catch {}
   return null;
+}
+
+// Fallback 2.1: Piped Direct Stream Downloader
+async function downloadViaPipedApi(videoId, format, targetFilePath) {
+  if (!videoId) return false;
+  const isAudio = format === 'mp3' || format === 'wav';
+  console.log(`[PIPED FALLBACK] Requesting stream for videoId: ${videoId}`);
+
+  const instances = [
+    `https://pipedapi.kavin.rocks/streams/${videoId}`,
+    `https://api.piped.video/streams/${videoId}`,
+    `https://pipedapi.tokhmi.xyz/streams/${videoId}`,
+    `https://pipedapi.moomoo.me/streams/${videoId}`
+  ];
+
+  for (const apiUrl of instances) {
+    try {
+      const res = await fetch(apiUrl);
+      if (!res.ok) continue;
+      const data = await res.json();
+
+      let directUrl = null;
+      if (isAudio && Array.isArray(data.audioStreams) && data.audioStreams.length > 0) {
+        data.audioStreams.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+        directUrl = data.audioStreams[0].url;
+      } else if (Array.isArray(data.videoStreams) && data.videoStreams.length > 0) {
+        directUrl = data.videoStreams[0].url;
+      }
+
+      if (directUrl) {
+        console.log(`[PIPED FALLBACK SUCCESS] Downloading media stream...`);
+        const streamRes = await fetch(directUrl);
+        if (streamRes.ok) {
+          const buf = Buffer.from(await streamRes.arrayBuffer());
+          fs.writeFileSync(targetFilePath, buf);
+          console.log(`[PIPED FALLBACK SUCCESS] Saved ${buf.length} bytes to ${targetFilePath}`);
+          return true;
+        }
+      }
+    } catch (err) {
+      console.warn(`[PIPED FALLBACK WARN] ${apiUrl}: ${err.message}`);
+    }
+  }
+  return false;
 }
 
 // Fallback 2.1: Invidious Public Direct Stream Downloader
@@ -1113,10 +1157,15 @@ app.post('/api/prepare', async (req, res) => {
         await runYtDlp(fallbackArgs);
         downloadSuccess = true;
       } catch (fallbackErr) {
-        console.warn('[PREPARE] Fallback yt-dlp also failed, attempting Invidious & Cobalt API stream proxy...');
-        // Fallback 2: Invidious / Cobalt Stream Proxy API
+        console.warn('[PREPARE] Fallback yt-dlp also failed, attempting Piped, Invidious & Cobalt API stream proxy...');
+        // Fallback 2: Piped / Invidious / Cobalt Stream Proxy API
         if (isYouTube) {
-          downloadSuccess = await downloadViaInvidiousApi(cleanUrl, format, targetFilePath);
+          const vId = getYouTubeVideoId(cleanUrl);
+          downloadSuccess = await downloadViaPipedApi(vId, format, targetFilePath);
+          if (!downloadSuccess) {
+            console.warn('[PREPARE] Piped API failed, trying Invidious API...');
+            downloadSuccess = await downloadViaInvidiousApi(cleanUrl, format, targetFilePath);
+          }
           if (!downloadSuccess) {
             console.warn('[PREPARE] Invidious API failed, trying Cobalt API...');
             downloadSuccess = await downloadViaCobaltApi(cleanUrl, format, targetFilePath);
