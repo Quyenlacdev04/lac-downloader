@@ -772,15 +772,24 @@ app.post('/api/info', async (req, res) => {
     console.log(`[INFO] Fetching info for: ${cleanUrl}`);
 
     let trackInfo = null;
+    const isYouTube = /youtube\.com|youtu\.be/i.test(cleanUrl);
 
     // 1. Try yt-dlp dump-json
     try {
-      const output = await runYtDlp([
+      const infoArgs = [
         '--dump-json',
         '--no-warnings',
-        '--no-playlist',
-        cleanUrl
-      ]);
+        '--no-playlist'
+      ];
+
+      if (isYouTube) {
+        infoArgs.push('--extractor-args', 'youtube:player_client=android,ios,mweb,web');
+        infoArgs.push('--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+      }
+
+      infoArgs.push(cleanUrl);
+
+      const output = await runYtDlp(infoArgs);
 
       const info = parseYtDlpJson(output);
       const formats = info.formats || [];
@@ -867,11 +876,19 @@ app.post('/api/prepare', async (req, res) => {
     }
 
     console.log(`[PREPARE] Starting download for: ${cleanUrl} (format: ${format || 'original'})`);
+    const isYouTube = /youtube\.com|youtu\.be/i.test(cleanUrl);
 
     // Get track info for filename
     let title = 'media_download';
     try {
-      const infoOutput = await runYtDlp(['--dump-json', '--no-warnings', '--no-playlist', cleanUrl]);
+      const titleArgs = ['--dump-json', '--no-warnings', '--no-playlist'];
+      if (isYouTube) {
+        titleArgs.push('--extractor-args', 'youtube:player_client=android,ios,mweb,web');
+        titleArgs.push('--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+      }
+      titleArgs.push(cleanUrl);
+
+      const infoOutput = await runYtDlp(titleArgs);
       const info = parseYtDlpJson(infoOutput);
       title = `${info.uploader || info.artist || info.channel || 'Media'} - ${info.title || 'Track'}`;
       title = title.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
@@ -889,13 +906,16 @@ app.post('/api/prepare', async (req, res) => {
 
     const outputTemplate = path.join(tmpDir, '%(title)s.%(ext)s');
 
-    const isYouTube = /youtube\.com|youtu\.be/i.test(cleanUrl);
-
     // Build primary download arguments based on format and platform
     const downloadArgs = [
       '--no-warnings',
       '--no-playlist'
     ];
+
+    if (isYouTube) {
+      downloadArgs.push('--extractor-args', 'youtube:player_client=android,ios,mweb,web');
+      downloadArgs.push('--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+    }
 
     if (FFMPEG_PATH && FFMPEG_PATH !== 'ffmpeg') {
       downloadArgs.push('--ffmpeg-location', FFMPEG_PATH);
@@ -925,11 +945,14 @@ app.post('/api/prepare', async (req, res) => {
       // Fallback: simple best format download without strict conversion flags
       const fallbackArgs = [
         '--no-warnings',
-        '--no-playlist',
-        '-f', 'bestaudio/best/bestvideo+bestaudio/best',
-        '-o', outputTemplate,
-        cleanUrl
+        '--no-playlist'
       ];
+      if (isYouTube) {
+        fallbackArgs.push('--extractor-args', 'youtube:player_client=android,ios,mweb,web');
+        fallbackArgs.push('--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+      }
+      fallbackArgs.push('-f', 'bestaudio/best/bestvideo+bestaudio/best', '-o', outputTemplate, cleanUrl);
+
       if (FFMPEG_PATH && FFMPEG_PATH !== 'ffmpeg') {
         fallbackArgs.unshift('--ffmpeg-location', FFMPEG_PATH);
       }
