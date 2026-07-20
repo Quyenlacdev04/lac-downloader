@@ -1134,42 +1134,26 @@ app.post('/api/prepare', async (req, res) => {
     downloadArgs.push('-o', outputTemplate, cleanUrl);
 
     let downloadSuccess = false;
-    try {
-      await runYtDlp(downloadArgs);
-      downloadSuccess = true;
-    } catch (primaryErr) {
-      console.warn('[PREPARE] Primary yt-dlp download failed, running fallback:', primaryErr.message);
-      // Fallback 1: Simple best format download
-      try {
-        const fallbackArgs = [
-          '--no-warnings',
-          '--no-playlist',
-          '--concurrent-fragments', '8',
-          '--no-mtime',
-          '--no-part'
-        ];
-        if (isYouTube) {
-          fallbackArgs.push(...getYouTubeArgs());
-        }
-        fallbackArgs.push('-f', 'bestaudio/best/bestvideo+bestaudio/best', '-o', outputTemplate, cleanUrl);
 
-        if (FFMPEG_PATH && FFMPEG_PATH !== 'ffmpeg') {
-          fallbackArgs.unshift('--ffmpeg-location', FFMPEG_PATH);
-        }
-        await runYtDlp(fallbackArgs);
+    // Fast-pass for YouTube: Try Piped Direct CDN Stream API first (0.7s instant stream download!)
+    if (isYouTube) {
+      const vId = getYouTubeVideoId(cleanUrl);
+      console.log(`[PREPARE FAST-PASS] Attempting instant Piped CDN stream for YouTube vId: ${vId}`);
+      downloadSuccess = await downloadViaPipedApi(vId, format, targetFilePath);
+    }
+
+    if (!downloadSuccess) {
+      try {
+        console.log(`[PREPARE] Running yt-dlp downloader...`);
+        await runYtDlp(downloadArgs);
         downloadSuccess = true;
-      } catch (fallbackErr) {
-        console.warn('[PREPARE] Fallback yt-dlp also failed, attempting Piped, Invidious & Cobalt API stream proxy...');
-        // Fallback 2: Piped / Invidious / Cobalt Stream Proxy API
+      } catch (primaryErr) {
+        console.warn('[PREPARE] Primary yt-dlp download failed, running fallback:', primaryErr.message);
         if (isYouTube) {
-          const vId = getYouTubeVideoId(cleanUrl);
-          downloadSuccess = await downloadViaPipedApi(vId, format, targetFilePath);
+          console.warn('[PREPARE] Attempting Invidious API stream proxy...');
+          downloadSuccess = await downloadViaInvidiousApi(cleanUrl, format, targetFilePath);
           if (!downloadSuccess) {
-            console.warn('[PREPARE] Piped API failed, trying Invidious API...');
-            downloadSuccess = await downloadViaInvidiousApi(cleanUrl, format, targetFilePath);
-          }
-          if (!downloadSuccess) {
-            console.warn('[PREPARE] Invidious API failed, trying Cobalt API...');
+            console.warn('[PREPARE] Attempting Cobalt API stream proxy...');
             downloadSuccess = await downloadViaCobaltApi(cleanUrl, format, targetFilePath);
           }
         }
