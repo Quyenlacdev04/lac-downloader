@@ -97,8 +97,13 @@ ensureYtDlpBinary();
 
 console.log(`[CONFIG] yt-dlp path: ${YTDLP_PATH}`);
 
-// Resolve ffmpeg path
+// Resolve ffmpeg path (supports ffmpeg-static for Render Linux & Windows)
 const FFMPEG_PATH = (() => {
+  try {
+    const ffmpegStaticPath = require('ffmpeg-static');
+    if (ffmpegStaticPath && fs.existsSync(ffmpegStaticPath)) return ffmpegStaticPath;
+  } catch {}
+
   const candidates = [
     path.join(os.homedir(), 'AppData', 'Local', 'Microsoft', 'WinGet', 'Links', 'ffmpeg.exe'),
     path.join(os.homedir(), 'AppData', 'Local', 'Microsoft', 'WinGet', 'Packages', 'Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe', 'ffmpeg-8.1.2-full_build', 'bin', 'ffmpeg.exe'),
