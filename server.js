@@ -760,12 +760,58 @@ async function runYtDlp(args) {
 // Store info cache for instant response & title reuse
 const infoCache = new Map();
 
-// Helper: YouTube Extractor Args (mweb & tvhtml5 never enforce bot login on cloud IPs)
+// Helper: YouTube Extractor Args (android_creator & player_skip bypass web bot verification)
 function getYouTubeArgs() {
   return [
-    '--extractor-args', 'youtube:player_client=mweb,tvhtml5,android,ios',
-    '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+    '--extractor-args', 'youtube:player_client=android_creator,ios,mweb;player_skip=webpage,configs',
+    '--user-agent', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+    '--no-check-certificates'
   ];
+}
+
+// Fallback: Cobalt API (High-speed multi-datacenter stream proxy for YouTube)
+async function downloadViaCobaltApi(cleanUrl, format, targetFilePath) {
+  try {
+    const isAudio = format === 'mp3' || format === 'wav';
+    console.log(`[COBALT FALLBACK] Requesting Cobalt API stream for: ${cleanUrl}`);
+
+    const res = await fetch('https://api.cobalt.tools/', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+      },
+      body: JSON.stringify({
+        url: cleanUrl,
+        downloadMode: isAudio ? 'audio' : 'auto',
+        audioFormat: isAudio ? (format === 'wav' ? 'wav' : 'mp3') : 'mp3',
+        videoQuality: format === 'mp4_1080' ? '1080' : format === 'mp4_720' ? '720' : 'auto'
+      })
+    });
+
+    if (!res.ok) {
+      console.warn(`[COBALT FALLBACK] API HTTP status: ${res.status}`);
+      return false;
+    }
+
+    const data = await res.json();
+    const streamUrl = data.url || (data.picker && data.picker.length ? data.picker[0].url : null);
+
+    if (streamUrl) {
+      console.log(`[COBALT FALLBACK] Downloading stream content...`);
+      const fileRes = await fetch(streamUrl);
+      if (fileRes.ok) {
+        const arrayBuf = await fileRes.arrayBuffer();
+        fs.writeFileSync(targetFilePath, Buffer.from(arrayBuf));
+        console.log(`[COBALT FALLBACK SUCCESS] File downloaded successfully to ${targetFilePath}`);
+        return true;
+      }
+    }
+  } catch (err) {
+    console.warn('[COBALT FALLBACK ERROR]', err.message);
+  }
+  return false;
 }
 
 // API: Get track/video info
@@ -927,6 +973,8 @@ app.post('/api/prepare', async (req, res) => {
     const tmpDir = path.join(os.tmpdir(), 'media-downloader-' + Date.now());
     fs.mkdirSync(tmpDir, { recursive: true });
 
+    const extForFormat = format === 'wav' ? '.wav' : (format === 'mp3' ? '.mp3' : '.mp4');
+    const targetFilePath = path.join(tmpDir, `${title}${extForFormat}`);
     const outputTemplate = path.join(tmpDir, '%(title)s.%(ext)s');
 
     // Build multi-threaded high-speed download arguments
@@ -963,27 +1011,38 @@ app.post('/api/prepare', async (req, res) => {
 
     downloadArgs.push('-o', outputTemplate, cleanUrl);
 
+    let downloadSuccess = false;
     try {
       await runYtDlp(downloadArgs);
+      downloadSuccess = true;
     } catch (primaryErr) {
-      console.warn('[PREPARE] Primary download failed, running resilient fallback:', primaryErr.message);
-      // Fallback: simple best format download without strict conversion flags
-      const fallbackArgs = [
-        '--no-warnings',
-        '--no-playlist',
-        '--concurrent-fragments', '8',
-        '--no-mtime',
-        '--no-part'
-      ];
-      if (isYouTube) {
-        fallbackArgs.push(...getYouTubeArgs());
-      }
-      fallbackArgs.push('-f', 'bestaudio/best/bestvideo+bestaudio/best', '-o', outputTemplate, cleanUrl);
+      console.warn('[PREPARE] Primary yt-dlp download failed, running fallback:', primaryErr.message);
+      // Fallback 1: Simple best format download
+      try {
+        const fallbackArgs = [
+          '--no-warnings',
+          '--no-playlist',
+          '--concurrent-fragments', '8',
+          '--no-mtime',
+          '--no-part'
+        ];
+        if (isYouTube) {
+          fallbackArgs.push(...getYouTubeArgs());
+        }
+        fallbackArgs.push('-f', 'bestaudio/best/bestvideo+bestaudio/best', '-o', outputTemplate, cleanUrl);
 
-      if (FFMPEG_PATH && FFMPEG_PATH !== 'ffmpeg') {
-        fallbackArgs.unshift('--ffmpeg-location', FFMPEG_PATH);
+        if (FFMPEG_PATH && FFMPEG_PATH !== 'ffmpeg') {
+          fallbackArgs.unshift('--ffmpeg-location', FFMPEG_PATH);
+        }
+        await runYtDlp(fallbackArgs);
+        downloadSuccess = true;
+      } catch (fallbackErr) {
+        console.warn('[PREPARE] Fallback yt-dlp also failed, attempting Cobalt API stream proxy...');
+        // Fallback 2: Cobalt Stream Proxy API
+        if (isYouTube) {
+          downloadSuccess = await downloadViaCobaltApi(cleanUrl, format, targetFilePath);
+        }
       }
-      await runYtDlp(fallbackArgs);
     }
 
     // Find the downloaded file
