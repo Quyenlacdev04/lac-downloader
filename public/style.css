@@ -2654,31 +2654,32 @@ body {
   }
 }
 
-/* Animated Vector Entry Logo Splash Screen */
+/* Animated Vector Entry Logo Splash Screen (Super Mini Compact Size) */
 .entry-splash {
-  position: fixed;
-  inset: 0;
-  z-index: 999999;
-  background: radial-gradient(circle at center, #1a0f2b 0%, #090514 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.5s ease;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 999999 !important;
+  background: radial-gradient(circle at center, #181028 0%, #06030c 100%) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.5s ease !important;
 }
 
 .entry-splash.fade-out {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 .entry-splash-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  animation: entryPopIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  animation: entryPopIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important;
 }
 
 @keyframes entryPopIn {
@@ -2687,19 +2688,25 @@ body {
 }
 
 .entry-logo-ring {
-  position: relative;
-  width: 100px;
-  height: 100px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  box-shadow: 0 0 40px rgba(255, 106, 0, 0.35), 0 0 60px rgba(238, 9, 121, 0.3);
+  position: relative !important;
+  width: 65px !important;
+  height: 65px !important;
+  min-width: 65px !important;
+  min-height: 65px !important;
+  max-width: 65px !important;
+  max-height: 65px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
+  box-shadow: 0 0 25px rgba(255, 106, 0, 0.4), 0 0 40px rgba(238, 9, 121, 0.3) !important;
 }
 
 .entry-logo-svg {
-  width: 100px;
-  height: 100px;
+  width: 65px !important;
+  height: 65px !important;
+  max-width: 65px !important;
+  max-height: 65px !important;
 }
 
 .entry-svg-ring {
@@ -2738,29 +2745,29 @@ body {
 }
 
 .entry-brand-title {
-  font-size: 1.4rem;
-  font-weight: 900;
-  letter-spacing: 3px;
-  background: linear-gradient(135deg, #ff6a00, #ee0979, #00e676);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin: 0;
+  font-size: 1rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 2px !important;
+  background: linear-gradient(135deg, #ff6a00, #ee0979, #00e676) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  margin: 0 !important;
 }
 
 .entry-progress-bar {
-  width: 140px;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  overflow: hidden;
+  width: 90px !important;
+  height: 3px !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
 }
 
 .entry-progress-fill {
-  width: 0%;
-  height: 100%;
-  background: linear-gradient(90deg, #ff6a00, #ee0979, #00e676);
-  border-radius: 10px;
-  animation: entryFill 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  width: 0% !important;
+  height: 100% !important;
+  background: linear-gradient(90deg, #ff6a00, #ee0979, #00e676) !important;
+  border-radius: 10px !important;
+  animation: entryFill 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
 }
 
 @keyframes entryFill {
